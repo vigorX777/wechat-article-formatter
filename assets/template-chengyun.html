@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>{{TITLE}}</title>
+</head>
+<body style="background-color: #E5E5E5; padding: 20px;">
+    <!-- 复制提示区域 -->
+    <div style="max-width: 677px; margin: 0 auto 20px auto; background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%); padding: 15px 20px; border-radius: 8px; text-align: center; font-family: sans-serif;">
+        <p style="margin:0; color: #ffffff; font-weight: bold;">🍊 橙韵风格</p>
+        <p style="margin: 8px 0 0 0; color: rgba(255,255,255,0.9); font-size: 14px;">点击下方按钮一键复制，然后直接粘贴到公众号编辑器中。</p>
+    </div>
+    
+    <!-- 文章内容容器 -->
+    <div id="wechat-content" style="max-width: 677px; margin: 0 auto; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif;">
+
+<!-- ====================================== -->
+<!-- 在此插入转换后的 HTML 内容               -->
+<!-- ====================================== -->
+
+{{CONTENT}}
+
+<!-- ====================================== -->
+<!-- 内容结束                                -->
+<!-- ====================================== -->
+
+    </div>
+
+    <!-- 一键复制按钮 -->
+    <button id="copy-btn" style="position: fixed; bottom: 30px; right: 30px; padding: 14px 28px; background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; z-index: 1000; box-shadow: 0 4px 12px rgba(234, 88, 12, 0.3);" onclick="copyContent()">
+        一键复制
+    </button>
+
+    <script>
+    function copyContent() {
+        const content = document.getElementById('wechat-content');
+        const range = document.createRange();
+        range.selectNode(content);
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+        
+        try {
+            const successful = document.execCommand('copy');
+            if (successful) {
+                const btn = document.getElementById('copy-btn');
+                btn.textContent = '已复制!';
+                btn.style.background = 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)';
+                btn.style.boxShadow = '0 4px 12px rgba(76, 175, 80, 0.3)';
+                setTimeout(() => {
+                    btn.textContent = '一键复制';
+                    btn.style.background = 'linear-gradient(135deg, #fb923c 0%, #ea580c 100%)';
+                    btn.style.boxShadow = '0 4px 12px rgba(234, 88, 12, 0.3)';
+                }, 2000);
+            }
+        } catch (err) {
+            alert('复制失败，请手动选择内容复制');
+        }
+        
+        window.getSelection().removeAllRanges();
+    }
+    </script>
+</body>
+</html>

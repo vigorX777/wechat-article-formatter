@@ -7,8 +7,8 @@
 ## 功能特性
 
 - **Markdown → 公众号 HTML**：自动转换标题、列表、引用、表格等 Markdown 元素
-- **CSS 兼容性引擎**：自动执行 `div` 转 `table`、`white-space` 预处理等兼容性修复
-- **主题支持**：预设 Claude 风格（经典橙色），支持根据品牌主色自定义主题
+- **CSS 兼容性引擎**：自动处理公众号编辑器的兼容性问题（`section` 替代 `div`、代码块换行等）
+- **双主题支持**：预设 **Claude 风格**（简约橙）和 **橙韵风格**（杂志卡片）
 - **一键复制**：输出结构优化的 HTML，支持直接粘贴到公众号编辑器
 
 ## 快速开始
@@ -36,20 +36,55 @@ git clone https://github.com/vigorX777/wechat-article-formatter.git %USERPROFILE
 或者使用自然语言：
 
 - "帮我把 @report.md 格式化为公众号文章"
-- "排版这份文稿，使用主色 #007AFF"
+- "用橙韵风格排版 @深度解读.md"
+
+## 主题
+
+触发 Skill 后会提示选择主题风格：
+
+### Claude 风格（简约橙）
+
+简约橙色主题，适合技术分享、日常随笔类文章。
+
+| 用途 | 色值 | 说明 |
+|------|------|------|
+| 主色 | `#D97757` | 标题边框、强调文字 |
+| 背景浅 | `#FFF5F0` | 图片占位符背景 |
+| 背景灰 | `#FAF9F7` | 表格交替行、代码块背景 |
+
+**特点**：H2 标题带左边框、引用块浅灰背景、整体简洁清爽
+
+### 橙韵风格（杂志卡片）🆕
+
+渐变头图 + 卡片布局，适合深度解读、专题报道类长文。
+
+| 用途 | 色值 | 说明 |
+|------|------|------|
+| 主色-亮 | `#fb923c` | 渐变起始色 |
+| 主色-深 | `#ea580c` | 渐变结束色 |
+| 强调色 | `#d97706` | 边框、高亮文字 |
+
+**特点**：
+- 橙色渐变头部区域（带胶囊标签、主副标题）
+- 白色内容卡片（负 margin 上移效果）
+- 章节标题使用中文序号方块（一、二、三...）
+- 引用块使用浅黄渐变背景
+- 渐变分隔线
 
 ## 项目结构
 
 ```
 wechat-article-formatter/
-├── SKILL.md                    # Skill 主文件（Claude 读取的入口）
-├── README.md                   # 项目说明
+├── SKILL.md                              # Skill 主文件（Claude 读取的入口）
+├── README.md                             # 项目说明
 ├── assets/
-│   └── template.html           # HTML 输出模板（含一键复制功能）
+│   ├── template.html                     # Claude 风格 HTML 模板
+│   └── template-chengyun.html            # 橙韵风格 HTML 模板
 └── references/
-    ├── themes.md               # 主题配色方案
-    ├── element-styles.md       # 元素样式模板
-    └── css-compatibility.md    # 公众号 CSS 兼容性规范
+    ├── themes.md                         # 主题配色方案
+    ├── element-styles.md                 # Claude 风格元素样式
+    ├── chengyun-element-styles.md        # 橙韵风格元素样式
+    └── css-compatibility.md              # 公众号 CSS 兼容性规范
 ```
 
 ## 公众号 CSS 兼容性
@@ -58,34 +93,14 @@ wechat-article-formatter/
 
 | 问题 | 解决方案 |
 |------|----------|
-| `<div>` 样式不生效 | 使用 `<table>` 替代布局容器 |
+| `<div>` 样式不生效 | 使用 `<section>` 替代 |
 | `<tr>` 背景色丢失 | 背景色写在 `<td>` 上 |
 | 代码块换行丢失 | 换行符 → `<br>`，空格 → `&nbsp;` |
-| 虚线边框不支持 | 优先使用实线边框 |
+| 不支持 flex/grid | 使用 `inline-block` 或嵌套结构 |
 
-**不支持的 CSS 属性**：`flex`、`grid`、`box-shadow`、`transform`、CSS 变量、媒体查询等。
+**可放心使用**：`linear-gradient`、`border-radius`、`box-shadow`、`rgba()`、负 `margin`
 
 详细规范见 [references/css-compatibility.md](references/css-compatibility.md)。
-
-## 主题
-
-### Claude 风格（默认）
-
-简约橙色主题，适合技术分享、深度思考类文章。
-
-| 用途 | 色值 | 说明 |
-|------|------|------|
-| 主色 | `#D97757` | 标题边框、强调文字 |
-| 背景浅 | `#FFF5F0` | 图片占位符背景 |
-| 背景灰 | `#FAF9F7` | 表格交替行、代码块背景 |
-
-### 自定义主题
-
-指定主色即可自动计算辅助色：
-
-```
-排版这份文稿，使用主色 #007AFF
-```
 
 ## 输出说明
 
@@ -93,6 +108,38 @@ wechat-article-formatter/
 
 - `article.html`：可直接用浏览器打开并复制的预览页面
 - `raw-content.txt`：纯 HTML 代码片段
+
+---
+
+## 更新日志
+
+### v1.1.0 (2026-01-28)
+
+**新增橙韵主题**
+
+- ✨ 新增「橙韵」主题风格（杂志卡片式排版）
+  - 橙色渐变头部区域（带胶囊标签、主副标题、日期）
+  - 白色内容卡片（负 margin 上移效果）
+  - 中文序号方块章节标题（一、二、三...）
+  - 浅黄渐变引用块
+  - 渐变分隔线
+- 🔄 Skill 触发后新增主题选择流程
+- 📄 新增 `references/chengyun-element-styles.md` 橙韵元素样式规范
+- 📄 新增 `assets/template-chengyun.html` 橙韵预览模板
+- 📝 更新 `SKILL.md` 添加双主题工作流程说明
+- 📝 更新 `references/themes.md` 添加橙韵配色方案
+
+### v1.0.0 (2026-01-27)
+
+**初始版本**
+
+- 🎉 首次发布
+- ✨ 支持 Markdown → 公众号 HTML 转换
+- 🎨 预设 Claude 风格（简约橙色主题）
+- 🔧 公众号 CSS 兼容性引擎
+- 📋 一键复制功能
+
+---
 
 ## License
 
