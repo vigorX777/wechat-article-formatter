@@ -1,6 +1,6 @@
 ---
 name: wechat-article-formatter
-description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。支持 Claude 风格（简约橙）和橙韵风格（杂志卡片）两种预设主题。自动处理公众号编辑器的 CSS 兼容性问题（div 转 table、代码块换行、表格背景色等）。触发词：「公众号排版」「微信文章格式化」「WeChat article」「格式化为公众号」「转换为微信格式」。
+description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。支持 Claude 风格（简约橙）、橙韵风格（杂志卡片）和蓝色专业风格（商务数据）三种预设主题。自动处理公众号编辑器的 CSS 兼容性问题（div 转 table、代码块换行、表格背景色、字体继承等）。触发词：「公众号排版」「微信文章格式化」「WeChat article」「格式化为公众号」「转换为微信格式」。
 ---
 
 # 微信文章排版生成器 (WeChat Article Formatter)
@@ -10,9 +10,9 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 ## 核心能力
 
 - **Markdown → 公众号 HTML**: 自动转换标题、列表、引用、表格等 Markdown 元素。
-- **CSS 兼容性引擎**: 自动执行 `div` 转 `table`、`white-space` 预处理等兼容性修复。
-- **双主题支持**: 预设 **Claude 风格**（简约橙）和 **橙韵风格**（杂志卡片），用户触发后选择。
-- **一键复制准备**: 输出结构优化的 HTML，支持直接粘贴到公众号编辑器。
+- **CSS 兼容性引擎**: 自动执行 `div` 转 `table`、`white-space` 预处理、**字体显式声明**等兼容性修复。
+- **三主题支持**: 预设 **Claude 风格**（简约橙）、**橙韵风格**（杂志卡片）和 **蓝色专业风格**（商务数据），用户触发后选择。
+- **一键复制准备**: 使用 Clipboard API 输出 HTML 格式，支持直接粘贴到公众号编辑器并保留样式。
 
 ## 工作流程（必须遵循）
 
@@ -24,19 +24,22 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 |------|------|----------|
 | **Claude 风格** | 简约橙色、左边框标题、清爽段落 | 技术分享、日常随笔、简短内容 |
 | **橙韵风格** | 渐变头图、卡片布局、中文序号章节 | 深度解读、专题报道、长文精读 |
+| **蓝色专业** | 蓝色渐变头图、白色卡片、数据感 | 数据分析、用户研究、商业报告 |
 
 **提问示例：**
 > 请选择排版主题：
 > 1. **Claude 风格** - 简约清爽，适合技术分享
 > 2. **橙韵风格** - 杂志卡片，适合深度解读
+> 3. **蓝色专业** - 商务数据，适合分析报告
 >
-> 输入 1 或 2，或直接说「Claude」/「橙韵」
+> 输入 1、2 或 3，或直接说「Claude」/「橙韵」/「蓝色」
 
 ### 第二步：解析与转换
 
 根据用户选择的主题，加载对应的样式规范进行转换：
 - Claude 风格 → 参考 [references/element-styles.md](references/element-styles.md)
 - 橙韵风格 → 参考 [references/chengyun-element-styles.md](references/chengyun-element-styles.md)
+- 蓝色专业 → 参考 [references/blue-element-styles.md](references/blue-element-styles.md)
 
 ### 第三步：输出文件
 
@@ -53,6 +56,7 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 或者使用自然语言：
 - "帮我把 @report.md 格式化为公众号文章"
 - "用橙韵风格排版 @深度解读.md"
+- "用蓝色专业风格排版 @数据分析报告.md"
 
 ## 主题详情
 
@@ -89,6 +93,25 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 - 引用块使用浅黄渐变背景
 - 渐变分隔线
 
+### 蓝色专业风格（商务数据）
+
+蓝色渐变头图 + 白色卡片布局，适合数据分析、用户研究、商业报告类文章。详见 [references/blue-element-styles.md](references/blue-element-styles.md)。
+
+| 用途 | 色值 | 说明 |
+|------|------|------|
+| 主色 | `#2563eb` | 专业蓝、标题边框 |
+| 主色深 | `#1d4ed8` | 渐变结束色 |
+| 强调色 | `#3b82f6` | 按钮、渐变起始 |
+| 背景浅 | `#eff6ff` | 浅蓝背景、图片占位符 |
+| 页面背景 | `#f8fafc` | 近白灰 |
+
+**结构特点：**
+- 蓝色渐变头部区域（带胶囊标签、主副标题、数据来源）
+- 白色内容卡片（负 margin 上移效果，圆角阴影）
+- 章节标题使用中文序号方块（一、二、三...）
+- 引用块使用浅蓝渐变背景和蓝色左边框
+- 渐变分隔线
+
 ## 公众号 CSS 兼容性规范摘要
 
 由于公众号编辑器的严格过滤，排版时需遵循以下原则（详见 [references/css-compatibility.md](references/css-compatibility.md)）：
@@ -98,6 +121,7 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 3. **代码块处理**: 不支持 `white-space: pre-wrap`，需将换行符转为 `<br>` 并处理空格。
 4. **装饰限制**: 慎用 `dashed` 虚线边框，可放心使用 `border-radius` 和 `linear-gradient`。
 5. **禁用布局**: 不支持 `flex`、`grid`，需使用 `inline-block` 或嵌套结构。
+6. **字体继承**: `<th>` 和 `<td>` 必须显式声明 `font-size`，不能依赖表格继承。
 
 ## 输出文件说明
 
@@ -105,12 +129,62 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 - `article.html`: 可直接用浏览器打开并复制的预览页面。
 - `raw-content.txt`: 纯 HTML 代码片段。
 
+## 复制功能实现规范
+
+生成的 HTML 预览文件**必须**包含以下复制函数实现，使用 Clipboard API 确保粘贴时保留 HTML 格式：
+
+```javascript
+async function copyContent() {
+  const content = document.getElementById('wechat-content');
+  const btn = document.querySelector('.copy-btn');
+  
+  try {
+    // 主方案：Clipboard API（保留 HTML 格式）
+    const htmlContent = content.innerHTML;
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const textBlob = new Blob([content.innerText], { type: 'text/plain' });
+    
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'text/html': blob,
+        'text/plain': textBlob
+      })
+    ]);
+    
+    btn.textContent = '✅ 已复制';
+    btn.classList.add('copied');
+  } catch (err) {
+    // 降级方案：传统选择复制
+    const range = document.createRange();
+    range.selectNodeContents(content);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    document.execCommand('copy');
+    selection.removeAllRanges();
+    
+    btn.textContent = '✅ 已复制';
+    btn.classList.add('copied');
+  }
+  
+  setTimeout(() => {
+    btn.textContent = '📋 复制全文';
+    btn.classList.remove('copied');
+  }, 2000);
+}
+```
+
+> **重要**: 不要使用传统的 `document.execCommand('copy')` 作为主方案，它在 Safari 等浏览器中可能丢失 HTML 格式。
+
 ## 验证清单
 
 ### 通用检查
-- [ ] 所有样式是否已内联（无 `<style>` 标签）？
+- [ ] 所有样式是否已内联（无 `<style>` 标签用于内容区域）？
 - [ ] 代码块的长行是否已处理为可自动换行的 HTML 结构？
 - [ ] 图片占位符是否包含原始文件名以便用户替换？
+- [ ] 复制功能是否使用 Clipboard API + text/html blob？
+- [ ] 所有正文段落 font-size 是否为 16px？
+- [ ] 所有 `<th>` 和 `<td>` 是否**显式**包含 `font-size: 16px`？
 
 ### Claude 风格检查
 - [ ] 表格背景色是否已正确应用到 `td` 标签？
@@ -122,3 +196,11 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 - [ ] 章节标题是否使用中文序号方块（一、二、三...）？
 - [ ] 引用块是否使用浅黄渐变背景和左边框？
 - [ ] 分隔线是否使用渐变效果？
+
+### 蓝色专业风格检查
+- [ ] 头部蓝色渐变区域是否完整（标签、主标题、副标题、数据来源）？
+- [ ] 白色内容卡片是否使用负 margin 上移和圆角阴影？
+- [ ] 章节标题是否使用蓝色中文序号方块（一、二、三...）？
+- [ ] 引用块是否使用浅蓝渐变背景和蓝色左边框？
+- [ ] 分隔线是否使用蓝色渐变效果？
+- [ ] 强调文字是否使用 `#2563eb` 蓝色？

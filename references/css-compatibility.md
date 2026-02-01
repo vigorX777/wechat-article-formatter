@@ -88,7 +88,65 @@ line1<br>line2<br>&nbsp;&nbsp;indented
 - `@media` 媒体查询（无法实现响应式 CSS）
 - `position: fixed` / `position: absolute`（仅支持默认定位）
 
-## 6. 其他注意事项
+## 6. 表格单元格字体大小不继承问题
+**问题**: 在 `<table>` 标签上设置的 `font-size` 不会被 `<th>` 和 `<td>` 正确继承，导致表格内文字显示为浏览器默认大小（通常为 14px 左右）。
+
+**根本原因**: 微信公众号编辑器在处理粘贴内容时，会对 HTML 结构进行清理和重写，CSS 继承关系被打断。只有**直接写在元素上的内联样式**才能可靠保留。
+
+**解决方案**: 必须在每个 `<th>` 和 `<td>` 标签上**显式声明** `font-size`。
+
+```html
+<!-- ❌ 不生效（依赖继承） -->
+<table style="font-size: 16px;">
+  <tr>
+    <th style="padding: 12px 15px; background-color: #D97757;">标题</th>
+  </tr>
+  <tr>
+    <td style="padding: 12px 15px;">内容</td>
+  </tr>
+</table>
+
+<!-- ✅ 正确写法（显式声明） -->
+<table style="width: 100%; border-collapse: collapse; font-size: 16px;">
+  <tr>
+    <th style="padding: 12px 15px; background-color: #D97757; color: #FFFFFF; font-size: 16px;">标题</th>
+  </tr>
+  <tr>
+    <td style="padding: 12px 15px; background-color: #FFFFFF; font-size: 16px;">内容</td>
+  </tr>
+</table>
+```
+
+**规则**: 生成表格时，所有 `<th>` 和 `<td>` 必须包含 `font-size` 属性。
+
+## 7. 复制粘贴时样式丢失问题
+**问题**: 使用传统的 `document.execCommand('copy')` 复制 HTML 内容时，在某些浏览器（特别是 Safari）中粘贴后会丢失 HTML 格式，只保留纯文本。
+
+**解决方案**: 使用 Clipboard API，同时写入 `text/html` 和 `text/plain` 两种格式。
+
+```javascript
+// ❌ 可能丢失格式
+const range = document.createRange();
+range.selectNodeContents(content);
+const selection = window.getSelection();
+selection.removeAllRanges();
+selection.addRange(range);
+document.execCommand('copy');
+
+// ✅ 正确写法（保留 HTML 格式）
+const htmlContent = content.innerHTML;
+const blob = new Blob([htmlContent], { type: 'text/html' });
+const textBlob = new Blob([content.innerText], { type: 'text/plain' });
+
+await navigator.clipboard.write([
+  new ClipboardItem({
+    'text/html': blob,
+    'text/plain': textBlob
+  })
+]);
+```
+
+## 8. 其他注意事项
 - **外链**: 不支持 `<a>` 标签跳转到非公众号域名以外的链接（会被移除 `href`）。
 - **图片**: 图片必须使用公众号素材库地址。Skill 生成时应使用占位符，由用户手动替换。
 - **字体**: 公众号会强制使用系统默认字体，设置 `font-family` 效果有限。
