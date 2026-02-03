@@ -78,10 +78,10 @@ HTML 生成完成后，询问用户是否要发布到公众号：
 
 ### 命令
 
-使用 `/wechat-publish` 命令将已生成的 HTML 直接发布到微信公众号：
+使用 `/wechat-post-html` 命令将已生成的 HTML 直接发布到微信公众号：
 
 ```bash
-/wechat-publish .wechat-output/article.html
+/wechat-post-html .wechat-output/article.html
 ```
 
 **注意：** 此命令接受 **HTML 文件**，不进行 Markdown 转换。如需从 Markdown 生成并发布，请使用 `/wechat-format` 命令。
@@ -90,13 +90,13 @@ HTML 生成完成后，询问用户是否要发布到公众号：
 
 ```bash
 # 发布已生成的 HTML
-/wechat-publish .wechat-output/article.html
+/wechat-post-html .wechat-output/article.html
 
 # 带 manifest 文件（包含图片映射）
-/wechat-publish .wechat-output/article.html --manifest .wechat-output/manifest.json
+/wechat-post-html .wechat-output/article.html --manifest .wechat-output/manifest.json
 
 # 带封面图
-/wechat-publish .wechat-output/article.html --cover ./cover.png
+/wechat-post-html .wechat-output/article.html --cover ./cover.png
 ```
 
 ### 前置要求
@@ -139,7 +139,7 @@ npx -y bun scripts/publish.ts --html <path> [options]
 
 ### manifest.json 格式
 
-`/wechat-format` 生成的 `manifest.json` 包含文章元信息和图片映射，供 `/wechat-publish` 消费：
+`/wechat-format` 生成的 `manifest.json` 包含文章元信息和图片映射，供 `/wechat-post-html` 消费：
 
 ```json
 {
