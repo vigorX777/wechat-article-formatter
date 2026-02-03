@@ -1,6 +1,6 @@
 ---
 name: wechat-article-formatter
-description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。支持 Claude 风格（简约橙）、橙韵风格（杂志卡片）和蓝色专业风格（商务数据）三种预设主题。自动处理公众号编辑器的 CSS 兼容性问题（div 转 table、代码块换行、表格背景色、字体继承等）。触发词：「公众号排版」「微信文章格式化」「WeChat article」「格式化为公众号」「转换为微信格式」。
+description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。支持 Claude 风格（简约橙）、橙韵风格（杂志卡片）、蓝色专业风格（商务数据）和贴纸风格（旋转贴纸）四种预设主题。自动处理公众号编辑器的 CSS 兼容性问题（div 转 table、代码块换行、表格背景色、字体继承等）。触发词：「公众号排版」「微信文章格式化」「WeChat article」「格式化为公众号」「转换为微信格式」。
 ---
 
 # 微信文章排版生成器 (WeChat Article Formatter)
@@ -11,7 +11,7 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 
 - **Markdown → 公众号 HTML**: 自动转换标题、列表、引用、表格等 Markdown 元素。
 - **CSS 兼容性引擎**: 自动执行 `div` 转 `table`、`white-space` 预处理、**字体显式声明**等兼容性修复。
-- **三主题支持**: 预设 **Claude 风格**（简约橙）、**橙韵风格**（杂志卡片）和 **蓝色专业风格**（商务数据），用户触发后选择。
+- **四主题支持**: 预设 **Claude 风格**（简约橙）、**橙韵风格**（杂志卡片）、**蓝色专业风格**（商务数据）和 **贴纸风格**（旋转贴纸），用户触发后选择。
 - **一键复制准备**: 使用 Clipboard API 输出 HTML 格式，支持直接粘贴到公众号编辑器并保留样式。
 
 ## 工作流程（必须遵循）
@@ -25,14 +25,16 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 | **Claude 风格** | 简约橙色、左边框标题、清爽段落 | 技术分享、日常随笔、简短内容 |
 | **橙韵风格** | 渐变头图、卡片布局、中文序号章节 | 深度解读、专题报道、长文精读 |
 | **蓝色专业** | 蓝色渐变头图、白色卡片、数据感 | 数据分析、用户研究、商业报告 |
+| **贴纸风格** | 旋转贴纸编号、渐变头图、卡片布局 | 教程指南、技术解析、趣味科普 |
 
 **提问示例：**
 > 请选择排版主题：
 > 1. **Claude 风格** - 简约清爽，适合技术分享
 > 2. **橙韵风格** - 杂志卡片，适合深度解读
 > 3. **蓝色专业** - 商务数据，适合分析报告
+> 4. **贴纸风格** - 旋转贴纸，适合教程指南
 >
-> 输入 1、2 或 3，或直接说「Claude」/「橙韵」/「蓝色」
+> 输入 1、2、3 或 4，或直接说「Claude」/「橙韵」/「蓝色」/「贴纸」
 
 ### 第二步：解析与转换
 
@@ -40,6 +42,7 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 - Claude 风格 → 参考 [references/element-styles.md](references/element-styles.md)
 - 橙韵风格 → 参考 [references/chengyun-element-styles.md](references/chengyun-element-styles.md)
 - 蓝色专业 → 参考 [references/blue-element-styles.md](references/blue-element-styles.md)
+- 贴纸风格 → 参考 [references/sticker-element-styles.md](references/sticker-element-styles.md)
 
 ### 第三步：输出文件
 
@@ -57,6 +60,114 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 - "帮我把 @report.md 格式化为公众号文章"
 - "用橙韵风格排版 @深度解读.md"
 - "用蓝色专业风格排版 @数据分析报告.md"
+- "用贴纸风格排版 @使用技巧.md"
+
+## 发布到公众号
+
+### 命令
+
+使用 `/wechat-publish` 命令一键格式化并发布到微信公众号：
+
+```bash
+/wechat-publish @article.md
+```
+
+或者使用自然语言：
+- "把 @report.md 发布到公众号"
+- "用橙韵风格发布 @深度解读.md 到微信公众号"
+- "发布 @数据分析报告.md 到公众号，用蓝色专业风格"
+
+### 前置要求
+
+| 要求 | 说明 |
+|------|------|
+| Google Chrome | 必须安装，用于 CDP 自动化 |
+| 首次登录 | 首次运行会打开浏览器，需扫码登录微信公众号后台（会话会被保留） |
+| 图片准备 | 文章中的图片需提前准备好本地路径 |
+
+### 发布工作流程
+
+执行 `/wechat-publish` 后，按以下步骤自动处理：
+
+**第一步：主题选择**
+
+同 `/wechat-format` 流程，询问用户选择主题风格（Claude / 橙韵 / 蓝色专业 / 贴纸）。
+
+**第二步：HTML 生成**
+
+根据选定主题生成公众号兼容 HTML，输出到 `.wechat-output/` 目录：
+- `article.html`：带预览功能的 HTML 页面
+- `raw-content.txt`：纯 HTML 代码片段
+- `manifest.json`：图片占位符映射文件
+
+**第三步：图片占位符处理**
+
+Markdown 中的图片会被替换为占位符 `WECHATIMGPH_N`（N 从 1 开始），同时在 `manifest.json` 中记录映射关系。
+
+**第四步：调用 CDP 脚本发布**
+
+通过跨 skill 调用 `baoyu-post-to-wechat` 的发布脚本：
+
+```bash
+# 发布到公众号
+npx -y bun ${SKILL_DIR}/../baoyu-post-to-wechat/scripts/wechat-article.ts \
+  --html .wechat-output/article.html
+```
+
+发布脚本会：
+1. 打开 Chrome 浏览器（使用 CDP 协议）
+2. 导航到微信公众号后台
+3. 粘贴 HTML 内容
+4. 依次替换图片占位符为实际图片
+
+### manifest.json 格式
+
+生成的 `manifest.json` 包含文章元信息和图片映射：
+
+```json
+{
+  "title": "文章标题",
+  "contentImages": [
+    {
+      "placeholder": "WECHATIMGPH_1",
+      "localPath": "./images/fig1.png",
+      "originalPath": "./images/fig1.png"
+    },
+    {
+      "placeholder": "WECHATIMGPH_2",
+      "localPath": "./images/fig2.png",
+      "originalPath": "./images/fig2.png"
+    }
+  ]
+}
+```
+
+| 字段 | 说明 |
+|------|------|
+| `title` | 从 Markdown 提取的文章标题（H1 或 frontmatter） |
+| `contentImages` | 图片占位符数组 |
+| `placeholder` | 占位符文本，格式为 `WECHATIMGPH_N` |
+| `localPath` | 图片本地路径（相对于 `.wechat-output/`） |
+| `originalPath` | 图片在原 Markdown 中的路径 |
+
+### 跨 Skill 脚本调用
+
+本 Skill 依赖 `baoyu-post-to-wechat` Skill 的 CDP 发布脚本：
+
+```
+${SKILL_DIR}/../baoyu-post-to-wechat/scripts/wechat-article.ts
+```
+
+其中 `${SKILL_DIR}` 为当前 SKILL.md 所在目录。
+
+### 故障排查
+
+| 问题 | 解决方案 |
+|------|----------|
+| 未登录 | 首次运行会打开浏览器，扫码登录后会话会被保留 |
+| Chrome 未找到 | 设置环境变量 `WECHAT_BROWSER_CHROME_PATH` |
+| 粘贴失败 | 检查系统剪贴板权限 |
+| 图片替换失败 | 确认 `manifest.json` 中的图片路径正确且文件存在 |
 
 ## 主题详情
 
@@ -111,6 +222,27 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 - 章节标题使用中文序号方块（一、二、三...）
 - 引用块使用浅蓝渐变背景和蓝色左边框
 - 渐变分隔线
+
+### 贴纸风格（旋转贴纸）
+
+旋转贴纸编号 + 渐变头图 + 卡片布局，适合教程指南、技术解析、趣味科普类文章。详见 [references/sticker-element-styles.md](references/sticker-element-styles.md)。
+
+| 用途 | 色值 | 说明 |
+|------|------|------|
+| 主色 | `#D97757` | Claude 橙，贴纸背景 |
+| 主色深 | `#C4684A` | 渐变结束色 |
+| 背景灰 | `#FAF9F7` | 引用块背景 |
+| 背景浅橙 | `#FFF5F0` | 提示块背景 |
+
+**结构特点：**
+- 橙色渐变头部区域（带胶囊标签、主副标题、来源信息）
+- 白色内容卡片（负 margin 上移效果，圆角阴影）
+- **旋转贴纸编号**（`transform: rotate(-15deg)`）⭐ 核心特色
+- 章节标题使用阿拉伯数字 + 英文标签（01 PARALLEL, 02 PLAN...）
+- 引用块使用灰色背景，提示块使用浅橙背景
+- 渐变分隔线
+
+**⚠️ 兼容性注意：** `transform: rotate()` 在部分老旧 Android WebView 可能不生效，降级为水平显示。
 
 ## 公众号 CSS 兼容性规范摘要
 
@@ -204,3 +336,13 @@ async function copyContent() {
 - [ ] 引用块是否使用浅蓝渐变背景和蓝色左边框？
 - [ ] 分隔线是否使用蓝色渐变效果？
 - [ ] 强调文字是否使用 `#2563eb` 蓝色？
+
+### 贴纸风格检查
+- [ ] 头部橙色渐变区域是否完整（标签、主标题、副标题、来源信息）？
+- [ ] 白色内容卡片是否使用负 margin 上移和圆角阴影？
+- [ ] 旋转贴纸是否使用 `transform: rotate(-15deg)`？
+- [ ] 贴纸序号是否使用两位数格式（01, 02...）+ 英文标签？
+- [ ] 引用块是否使用 `#FAF9F7` 灰色背景和橙色左边框？
+- [ ] 提示块是否使用 `#FFF5F0` 浅橙背景？
+- [ ] 分隔线是否使用橙色渐变效果？
+- [ ] 强调文字是否使用 `#D97757` 橙色？

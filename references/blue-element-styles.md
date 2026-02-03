@@ -157,7 +157,7 @@
 <table style="width: 100%; margin: 16px 0; border-collapse: collapse;">
 <tbody><tr>
 <td style="background-color: #eff6ff; border: 1px solid #2563eb; color: #2563eb; padding: 30px 20px; text-align: center; font-weight: bold; font-size: 16px;">
-图片：{文件名.png}
+WECHATIMGPH_1
 </td>
 </tr></tbody>
 </table>

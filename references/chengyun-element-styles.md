@@ -292,7 +292,7 @@ command --flag=value<br>
 <table style="width: 100%; margin: 16px 0; border-collapse: collapse;">
 <tbody><tr>
 <td style="background-color: #fff9e6; border: 1px solid #d97706; color: #d97706; padding: 30px 20px; text-align: center; font-weight: bold; font-size: 14px;">
-📷 [图片] {文件名.png}
+WECHATIMGPH_1
 </td>
 </tr></tbody>
 </table>

@@ -126,12 +126,12 @@ command --flag=value<br>
 ```
 
 ### 12. 图片占位符
-> **限制**：必须使用 `table` 结构模拟，避免使用公众号支持较差的 `div`。
+> **限制**：必须使用 `table` 结构模拟，避免使用公众号支持较差的 `div`。占位符 `WECHATIMGPH_N` 会被 CDP 脚本识别并替换为实际图片。
 ```html
 <table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
 <tbody><tr>
 <td style="background-color: #FFF5F0; border: 1px solid #D97757; color: #D97757; padding: 30px 20px; text-align: center; font-weight: bold; font-size: 14px;">
-📷 [图片] {文件名.png}
+WECHATIMGPH_1
 </td>
 </tr></tbody>
 </table>
