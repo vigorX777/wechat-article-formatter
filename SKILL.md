@@ -48,6 +48,18 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 
 生成的产物存放在 `.wechat-output/` 目录下，提供一键复制功能。
 
+### 第四步：询问是否发布
+
+HTML 生成完成后，询问用户是否要发布到公众号：
+
+> HTML 已生成到 `.wechat-output/article.html`
+> 
+> 是否要发布到微信公众号？
+> - 输入 **是** 或 **发布** → 调用 CDP 脚本发布
+> - 输入 **否** 或直接回车 → 结束流程
+
+如用户选择发布，则调用本地发布脚本 `scripts/publish.ts` 完成自动化发布。
+
 ## 快速开始
 
 输入以下命令对 Markdown 文件进行排版：
@@ -62,67 +74,72 @@ description: 将 Markdown 文稿转换为微信公众号兼容的 HTML 格式。
 - "用蓝色专业风格排版 @数据分析报告.md"
 - "用贴纸风格排版 @使用技巧.md"
 
-## 发布到公众号
+## 直接发布 HTML 到公众号
 
 ### 命令
 
-使用 `/wechat-publish` 命令一键格式化并发布到微信公众号：
+使用 `/wechat-publish` 命令将已生成的 HTML 直接发布到微信公众号：
 
 ```bash
-/wechat-publish @article.md
+/wechat-publish .wechat-output/article.html
 ```
 
-或者使用自然语言：
-- "把 @report.md 发布到公众号"
-- "用橙韵风格发布 @深度解读.md 到微信公众号"
-- "发布 @数据分析报告.md 到公众号，用蓝色专业风格"
+**注意：** 此命令接受 **HTML 文件**，不进行 Markdown 转换。如需从 Markdown 生成并发布，请使用 `/wechat-format` 命令。
+
+### 用法示例
+
+```bash
+# 发布已生成的 HTML
+/wechat-publish .wechat-output/article.html
+
+# 带 manifest 文件（包含图片映射）
+/wechat-publish .wechat-output/article.html --manifest .wechat-output/manifest.json
+
+# 带封面图
+/wechat-publish .wechat-output/article.html --cover ./cover.png
+```
 
 ### 前置要求
 
 | 要求 | 说明 |
 |------|------|
 | Google Chrome | 必须安装，用于 CDP 自动化 |
+| Bun 运行时 | 用于执行 TypeScript 脚本 |
 | 首次登录 | 首次运行会打开浏览器，需扫码登录微信公众号后台（会话会被保留） |
-| 图片准备 | 文章中的图片需提前准备好本地路径 |
+| 图片准备 | 如使用图片占位符，需确保 manifest.json 中的路径正确 |
 
-### 发布工作流程
+### 发布脚本
 
-执行 `/wechat-publish` 后，按以下步骤自动处理：
-
-**第一步：主题选择**
-
-同 `/wechat-format` 流程，询问用户选择主题风格（Claude / 橙韵 / 蓝色专业 / 贴纸）。
-
-**第二步：HTML 生成**
-
-根据选定主题生成公众号兼容 HTML，输出到 `.wechat-output/` 目录：
-- `article.html`：带预览功能的 HTML 页面
-- `raw-content.txt`：纯 HTML 代码片段
-- `manifest.json`：图片占位符映射文件
-
-**第三步：图片占位符处理**
-
-Markdown 中的图片会被替换为占位符 `WECHATIMGPH_N`（N 从 1 开始），同时在 `manifest.json` 中记录映射关系。
-
-**第四步：调用 CDP 脚本发布**
-
-通过跨 skill 调用 `baoyu-post-to-wechat` 的发布脚本：
+本 Skill 内置 CDP 发布脚本，无需依赖外部 skill：
 
 ```bash
-# 发布到公众号
-npx -y bun ${SKILL_DIR}/../baoyu-post-to-wechat/scripts/wechat-article.ts \
-  --html .wechat-output/article.html
+npx -y bun scripts/publish.ts --html <path> [options]
 ```
 
-发布脚本会：
-1. 打开 Chrome 浏览器（使用 CDP 协议）
-2. 导航到微信公众号后台
-3. 粘贴 HTML 内容
-4. 依次替换图片占位符为实际图片
+**参数说明：**
+
+| 参数 | 说明 |
+|------|------|
+| `--html <path>` | HTML 文件路径（必需） |
+| `--manifest <path>` | manifest.json 文件路径（可选，包含图片映射） |
+| `--cover <path>` | 封面图路径（可选） |
+| `--profile <dir>` | Chrome profile 目录（可选，用于保持登录状态） |
+
+### 发布流程
+
+执行发布脚本后，自动完成以下步骤：
+
+1. **启动 Chrome** - 使用 CDP 协议启动浏览器
+2. **登录检测** - 如未登录，等待用户扫码
+3. **创建草稿** - 点击"写图文"进入编辑器
+4. **粘贴内容** - 通过临时标签页复制 HTML 并粘贴
+5. **替换图片** - 依次替换 `WECHATIMGPH_N` 占位符为实际图片
+6. **上传封面** - 如提供封面图，上传到封面位置
+7. **保存草稿** - 保存为草稿（不自动发布上线）
 
 ### manifest.json 格式
 
-生成的 `manifest.json` 包含文章元信息和图片映射：
+`/wechat-format` 生成的 `manifest.json` 包含文章元信息和图片映射，供 `/wechat-publish` 消费：
 
 ```json
 {
@@ -150,24 +167,15 @@ npx -y bun ${SKILL_DIR}/../baoyu-post-to-wechat/scripts/wechat-article.ts \
 | `localPath` | 图片本地路径（相对于 `.wechat-output/`） |
 | `originalPath` | 图片在原 Markdown 中的路径 |
 
-### 跨 Skill 脚本调用
-
-本 Skill 依赖 `baoyu-post-to-wechat` Skill 的 CDP 发布脚本：
-
-```
-${SKILL_DIR}/../baoyu-post-to-wechat/scripts/wechat-article.ts
-```
-
-其中 `${SKILL_DIR}` 为当前 SKILL.md 所在目录。
-
 ### 故障排查
 
 | 问题 | 解决方案 |
 |------|----------|
+| Chrome 未找到 | 安装 Chrome 或设置环境变量 `CHROME_PATH` |
 | 未登录 | 首次运行会打开浏览器，扫码登录后会话会被保留 |
-| Chrome 未找到 | 设置环境变量 `WECHAT_BROWSER_CHROME_PATH` |
-| 粘贴失败 | 检查系统剪贴板权限 |
-| 图片替换失败 | 确认 `manifest.json` 中的图片路径正确且文件存在 |
+| 粘贴失败 | 检查系统剪贴板权限（macOS 需要授权 Terminal） |
+| 图片替换失败 | 确认 manifest.json 中的图片路径正确且文件存在 |
+| Bun 未安装 | 运行 `npm install -g bun` 或使用 `npx -y bun` |
 
 ## 主题详情
 
