@@ -1,0 +1,8 @@
+{
+  "name": "wechat-article-formatter",
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "publish": "bun scripts/publish.ts"
+  }
+}
