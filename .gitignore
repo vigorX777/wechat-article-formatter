@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# OpenCode working files
+.sisyphus/
+
+# Output directory
+.wechat-output/
+
+# Node modules (if any)
+node_modules/
