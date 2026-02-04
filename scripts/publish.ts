@@ -339,6 +339,9 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
   } finally {
     cdp.close();
   }
+  
+  // Explicitly exit after completion
+  process.exit(0);
 }
 
 function printUsage(): never {
