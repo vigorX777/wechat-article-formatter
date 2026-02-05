@@ -249,8 +249,10 @@ npx -y bun scripts/publish.ts --html <path> [options]
 |------|----------|
 | Chrome 未找到 | 安装 Chrome 或设置环境变量 `CHROME_PATH` |
 | 未登录 | 首次运行会打开浏览器，扫码登录后会话会被保留 |
-| 粘贴失败 | 检查系统剪贴板权限（macOS 需要授权 Terminal） |
+| 粘贴失败（macOS） | 检查辅助功能权限：系统偏好设置 → 安全性与隐私 → 隐私 → 辅助功能，添加终端应用 |
+| 粘贴失败（内容为空） | 确保 HTML 文件包含 `id="output"` 的容器元素 |
 | 图片替换失败 | 确认 manifest.json 中的图片路径正确且文件存在 |
+| 内容不完整 | 长文档（>300行）可能遗漏内容，手动核对原文后补充 |
 | Bun 未安装 | 运行 `npm install -g bun` 或使用 `npx -y bun` |
 
 ## 主题详情
@@ -351,7 +353,7 @@ npx -y bun scripts/publish.ts --html <path> [options]
 
 ```javascript
 async function copyContent() {
-  const content = document.getElementById('wechat-content');
+  const content = document.getElementById('output');
   const btn = document.querySelector('.copy-btn');
   
   try {
@@ -392,7 +394,56 @@ async function copyContent() {
 
 > **重要**: 不要使用传统的 `document.execCommand('copy')` 作为主方案，它在 Safari 等浏览器中可能丢失 HTML 格式。
 
+## 已知限制与注意事项
+
+### 长文档转换（重要）
+
+由于 Markdown → HTML 转换依赖 LLM 逐行处理，**超过 300 行的文档可能出现内容遗漏**。常见遗漏场景：
+
+| 遗漏类型 | 典型表现 | 预防措施 |
+|----------|----------|----------|
+| 表格行丢失 | 原文 20 行表格，转换后只有 7 行 | 转换后对比原文表格行数 |
+| 章节缺失 | 末尾章节（如附录、参考资料）完全消失 | 检查 H2/H3 标题数量是否匹配 |
+| 列表截断 | 长列表只保留前几项 | 核对列表项数量 |
+
+**强烈建议**：转换完成后，执行以下核对：
+1. 对比原文 H2 标题数量
+2. 对比原文表格行数（尤其是大表格）
+3. 检查附录/参考资料是否完整
+4. 验证图片占位符数量与原文图片数量一致
+
+### HTML 输出规范
+
+生成的 HTML 必须满足以下要求才能正常发布：
+
+| 要求 | 说明 |
+|------|------|
+| 容器 ID | 内容容器必须使用 `id="output"`（发布脚本依赖此 ID） |
+| 样式内联 | 所有样式必须写在元素 `style` 属性中 |
+| 图片占位符 | 格式为 `WECHATIMGPH_N`（N 从 1 开始） |
+
+### macOS 权限问题
+
+发布脚本使用 `osascript` 发送键盘事件（Cmd+V），首次运行需要授予辅助功能权限：
+
+1. 打开 **系统偏好设置 → 安全性与隐私 → 隐私 → 辅助功能**
+2. 添加你的终端应用（Terminal、iTerm2、VS Code 等）
+3. 重启终端后重试
+
+**检查权限状态**：
+```bash
+# 查看当前授权的应用
+sqlite3 ~/Library/Application\ Support/com.apple.TCC/TCC.db \
+  "SELECT client FROM access WHERE service='kTCCServiceAccessibility'"
+```
+
 ## 验证清单
+
+### 内容完整性检查（必做）
+- [ ] H2 标题数量是否与原文一致？
+- [ ] 所有表格行数是否与原文一致？
+- [ ] 附录/参考资料列表是否完整？
+- [ ] 图片占位符数量是否与原文图片数量一致？
 
 ### 通用检查
 - [ ] 所有样式是否已内联（无 `<style>` 标签用于内容区域）？
@@ -401,6 +452,7 @@ async function copyContent() {
 - [ ] 复制功能是否使用 Clipboard API + text/html blob？
 - [ ] 所有正文段落 font-size 是否为 16px？
 - [ ] 所有 `<th>` 和 `<td>` 是否**显式**包含 `font-size: 16px`？
+- [ ] HTML 内容容器是否使用 `id="output"`？
 
 ### Claude 风格检查
 - [ ] 表格背景色是否已正确应用到 `td` 标签？

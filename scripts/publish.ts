@@ -103,11 +103,11 @@ async function copyHtmlFromBrowser(cdp: CdpConnection, htmlFilePath: string): Pr
   await cdp.send('Runtime.enable', {}, { sessionId });
   await sleep(2000);
 
-  console.log('[wechat] Selecting #wechat-content content...');
+  console.log('[wechat] Selecting content from #output or #wechat-content...');
   await cdp.send<{ result: { value: unknown } }>('Runtime.evaluate', {
     expression: `
       (function() {
-        const output = document.querySelector('#wechat-content') || document.querySelector('#output') || document.body;
+        const output = document.querySelector('#output') || document.querySelector('#wechat-content') || document.body;
         const range = document.createRange();
         range.selectNodeContents(output);
         const selection = window.getSelection();
