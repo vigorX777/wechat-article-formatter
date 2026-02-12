@@ -49,6 +49,14 @@
 
 ## 元素模板
 
+### 0. 外层容器
+> **用途**：包裹全文，提供浅色底色和圆角，提升卡片感。
+```html
+<section style="background: rgba(0,0,0,0.02); border-radius: 12px; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;">
+{全文内容}
+</section>
+```
+
 ### 1. H1 标题（居中）
 ```html
 <h1 style="font-size: 22px; font-weight: bold; color: #1A1A1A; margin-bottom: 30px; text-align: center; line-height: 1.4;">{标题}</h1>
@@ -56,7 +64,7 @@
 
 ### 2. H2 标题（带左边框）
 ```html
-<h2 style="font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 20px; font-weight: bold; color: #1A1A1A; margin-top: 40px; margin-bottom: 20px; padding-left: 12px; border-left: 4px solid #D97757;">{标题}</h2>
+<h2 style="font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; font-size: 20px; font-weight: bold; color: #1A1A1A; margin-top: 40px; margin-bottom: 20px; padding-left: 12px; padding-bottom: 8px; border-left: 4px solid #D97757; border-bottom: 1px dashed #D97757;">{标题}</h2>
 ```
 
 ### 3. H3 标题（主题色）
@@ -66,7 +74,7 @@
 
 ### 4. 段落
 ```html
-<p style="font-size: 16px; color: #2D2D2D; margin-bottom: 20px; line-height: 2; text-align: justify;">{内容}</p>
+<p style="font-size: 16px; color: #2D2D2D; margin-bottom: 20px; line-height: 1.75; letter-spacing: 0.05em; text-align: justify;">{内容}</p>
 ```
 
 ### 5. 强调文字
@@ -76,13 +84,13 @@
 
 ### 6. 行内代码
 ```html
-<code style="background-color: #F0F0F0; color: #D97757; padding: 2px 6px; border-radius: 4px; font-family: Menlo, Monaco, Consolas, monospace; font-size: 14px;">{代码}</code>
+<code style="background-color: #F0F0F0; color: #D97757; padding: 2px 6px; border-radius: 4px; font-family: Menlo, Monaco, Consolas, monospace; font-size: 14px; letter-spacing: 0;">{代码}</code>
 ```
 
 ### 7. 代码块
 > **注意**：使用 `section` 标签，换行使用 `br`，缩进使用 `&nbsp;`。
 ```html
-<section style="background-color: #2D2D2D; color: #E8E8E8; padding: 16px 20px; border-radius: 8px; margin: 20px 0; font-family: Menlo, Monaco, Consolas, 'Microsoft YaHei', monospace; font-size: 14px; line-height: 2; display: block;">
+<section style="background-color: #2D2D2D; color: #E8E8E8; padding: 16px 20px; border-radius: 8px; margin: 20px 0; font-family: Menlo, Monaco, Consolas, 'Microsoft YaHei', monospace; font-size: 14px; line-height: 2; letter-spacing: 0; display: block;">
 <span style="color: #6A9955;"># 注释用绿色</span><br>
 command --flag=value<br>
 &nbsp;&nbsp;缩进内容
@@ -150,7 +158,7 @@ WECHATIMGPH_1
 
 ### 13. 分隔线
 ```html
-<hr style="border: none; border-top: 1px solid #E5E5E5; margin: 40px 0;">
+<hr style="background: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.1), rgba(0,0,0,0)); height: 1px; border: none; margin: 40px 0;">
 ```
 
 ---
