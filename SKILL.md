@@ -457,6 +457,11 @@ sqlite3 ~/Library/Application\ Support/com.apple.TCC/TCC.db \
 ### Claude 风格检查
 - [ ] 表格背景色是否已正确应用到 `td` 标签？
 - [ ] 引用块 (blockquote) 的边框是否符合主题配色？
+- [ ] 段落行高为 1.75 (line-height: 1.75)？
+- [ ] 字间距为 0.05em (letter-spacing: 0.05em)？
+- [ ] H2 有底部虚线 (border-bottom: 1px dashed)？
+- [ ] 分隔线使用渐变 (linear-gradient)？
+- [ ] 外层容器有极淡背景 (rgba(0,0,0,0.02))？
 
 ### 橙韵风格检查
 - [ ] 头部渐变区域是否完整（标签、主标题、副标题、日期）？
