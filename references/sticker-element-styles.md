@@ -388,37 +388,7 @@ WECHATIMGPH_1
 
 ---
 
-## 公众号兼容性注意事项 ⚠️
-
-### 必须遵守
-
-| 规则 | 说明 |
-|------|------|
-| **所有样式必须内联** | 公众号不支持 `<style>` 标签 |
-| **禁用 `display: flex/grid`** | 完全不支持 |
-| **禁用 `<table>` 做布局** | 会被识别为真正的表格，添加边框 |
-| **使用 `<section>` 替代 `<div>`** | 兼容性更好 |
-| **背景色写在最内层元素** | 不要写在 `<tr>` 上 |
-| **th/td 显式声明 font-size** | 不能依赖继承 |
-
-### 可以使用（已验证）
-
-| 特性 | 示例 |
-|------|------|
-| `display: inline-block` | 贴纸容器 |
-| `linear-gradient()` | 背景渐变 |
-| `border-radius` | 圆角 |
-| `box-shadow` | 阴影（用于卡片） |
-| `rgba()` | 透明度颜色 |
-| 负 `margin` | 元素重叠效果 |
-
-### 谨慎使用
-
-| 特性 | 风险 |
-|------|------|
-| `transform: rotate()` | 部分 Android WebView 不支持 |
-| `position: absolute/fixed` | 部分设备不支持 |
-| 复杂嵌套 | 层级过深可能丢失样式 |
+> CSS 兼容性规则详见 [css-compatibility.md](css-compatibility.md)。
 
 ---
 

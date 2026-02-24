@@ -257,89 +257,14 @@ npx -y bun scripts/publish.ts --html <path> [options]
 
 ## 主题详情
 
-### Claude 风格（简约橙）
+- **Claude 风格（简约橙）**: 简约橙色主题，适合技术分享、深度思考类文章。详见 [references/element-styles.md](references/element-styles.md)。
+- **橙韵风格（杂志卡片）**: 渐变头图+卡片布局，适合深度解读、专题报道类文章。详见 [references/chengyun-element-styles.md](references/chengyun-element-styles.md)。
+- **蓝色专业风格（商务数据）**: 蓝色渐变头图+白色卡片，适合数据分析、商业报告类文章。详见 [references/blue-element-styles.md](references/blue-element-styles.md)。
+- **贴纸风格（旋转贴纸）**: 旋转贴纸编号+渐变头图，适合教程指南、技术解析类文章。详见 [references/sticker-element-styles.md](references/sticker-element-styles.md)。
 
-简约橙色主题，适合技术分享、深度思考类文章。详见 [references/element-styles.md](references/element-styles.md)。
+## 公众号 CSS 兼容性规范
 
-| 用途 | 色值 | 说明 |
-|------|------|------|
-| 主色 | `#D97757` | 标题边框、强调文字 |
-| 背景浅 | `#FFF5F0` | 图片占位符背景 |
-| 背景灰 | `#FAF9F7` | 表格交替行、代码块背景 |
-
-**结构特点：**
-- H2 标题带 4px 左边框
-- 引用块使用浅灰背景
-- 整体风格简洁清爽
-
-### 橙韵风格（杂志卡片）
-
-渐变头图 + 卡片布局，适合深度解读、专题报道类文章。详见 [references/chengyun-element-styles.md](references/chengyun-element-styles.md)。
-
-| 用途 | 色值 | 说明 |
-|------|------|------|
-| 主色-亮 | `#fb923c` | 渐变起始色 |
-| 主色-深 | `#ea580c` | 渐变结束色 |
-| 强调色 | `#d97706` | 文字高亮、左边框 |
-| 页面背景 | `#fcfbf8` | 浅米色/暖白 |
-
-**结构特点：**
-- 橙色渐变头部区域（带胶囊标签、主副标题）
-- 白色内容卡片（负 margin 上移效果）
-- 章节标题使用中文序号方块（一、二、三...）
-- 引用块使用浅黄渐变背景
-- 渐变分隔线
-
-### 蓝色专业风格（商务数据）
-
-蓝色渐变头图 + 白色卡片布局，适合数据分析、用户研究、商业报告类文章。详见 [references/blue-element-styles.md](references/blue-element-styles.md)。
-
-| 用途 | 色值 | 说明 |
-|------|------|------|
-| 主色 | `#2563eb` | 专业蓝、标题边框 |
-| 主色深 | `#1d4ed8` | 渐变结束色 |
-| 强调色 | `#3b82f6` | 按钮、渐变起始 |
-| 背景浅 | `#eff6ff` | 浅蓝背景、图片占位符 |
-| 页面背景 | `#f8fafc` | 近白灰 |
-
-**结构特点：**
-- 蓝色渐变头部区域（带胶囊标签、主副标题、数据来源）
-- 白色内容卡片（负 margin 上移效果，圆角阴影）
-- 章节标题使用中文序号方块（一、二、三...）
-- 引用块使用浅蓝渐变背景和蓝色左边框
-- 渐变分隔线
-
-### 贴纸风格（旋转贴纸）
-
-旋转贴纸编号 + 渐变头图 + 卡片布局，适合教程指南、技术解析、趣味科普类文章。详见 [references/sticker-element-styles.md](references/sticker-element-styles.md)。
-
-| 用途 | 色值 | 说明 |
-|------|------|------|
-| 主色 | `#D97757` | Claude 橙，贴纸背景 |
-| 主色深 | `#C4684A` | 渐变结束色 |
-| 背景灰 | `#FAF9F7` | 引用块背景 |
-| 背景浅橙 | `#FFF5F0` | 提示块背景 |
-
-**结构特点：**
-- 橙色渐变头部区域（带胶囊标签、主副标题、来源信息）
-- 白色内容卡片（负 margin 上移效果，圆角阴影）
-- **旋转贴纸编号**（`transform: rotate(-15deg)`）⭐ 核心特色
-- 章节标题使用阿拉伯数字 + 英文标签（01 PARALLEL, 02 PLAN...）
-- 引用块使用灰色背景，提示块使用浅橙背景
-- 渐变分隔线
-
-**⚠️ 兼容性注意：** `transform: rotate()` 在部分老旧 Android WebView 可能不生效，降级为水平显示。
-
-## 公众号 CSS 兼容性规范摘要
-
-由于公众号编辑器的严格过滤，排版时需遵循以下原则（详见 [references/css-compatibility.md](references/css-compatibility.md)）：
-
-1. **容器替换**: 尽量使用 `<section>` 替代 `<div>`，避免使用 `<table>` 做布局。
-2. **背景色声明**: 如需使用表格，样式必须写在 `<td>` 或 `<th>` 上，而非 `<tr>`。
-3. **代码块处理**: 不支持 `white-space: pre-wrap`，需将换行符转为 `<br>` 并处理空格。
-4. **装饰限制**: 慎用 `dashed` 虚线边框，可放心使用 `border-radius` 和 `linear-gradient`。
-5. **禁用布局**: 不支持 `flex`、`grid`，需使用 `inline-block` 或嵌套结构。
-6. **字体继承**: `<th>` 和 `<td>` 必须显式声明 `font-size`，不能依赖表格继承。
+> 转换时必须遵循 [references/css-compatibility.md](references/css-compatibility.md) 中的兼容性规则（容器替换、背景色声明、代码块处理、字体继承等）。
 
 ## 输出文件说明
 
@@ -349,50 +274,7 @@ npx -y bun scripts/publish.ts --html <path> [options]
 
 ## 复制功能实现规范
 
-生成的 HTML 预览文件**必须**包含以下复制函数实现，使用 Clipboard API 确保粘贴时保留 HTML 格式：
-
-```javascript
-async function copyContent() {
-  const content = document.getElementById('output');
-  const btn = document.querySelector('.copy-btn');
-  
-  try {
-    // 主方案：Clipboard API（保留 HTML 格式）
-    const htmlContent = content.innerHTML;
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const textBlob = new Blob([content.innerText], { type: 'text/plain' });
-    
-    await navigator.clipboard.write([
-      new ClipboardItem({
-        'text/html': blob,
-        'text/plain': textBlob
-      })
-    ]);
-    
-    btn.textContent = '✅ 已复制';
-    btn.classList.add('copied');
-  } catch (err) {
-    // 降级方案：传统选择复制
-    const range = document.createRange();
-    range.selectNodeContents(content);
-    const selection = window.getSelection();
-    selection.removeAllRanges();
-    selection.addRange(range);
-    document.execCommand('copy');
-    selection.removeAllRanges();
-    
-    btn.textContent = '✅ 已复制';
-    btn.classList.add('copied');
-  }
-  
-  setTimeout(() => {
-    btn.textContent = '📋 复制全文';
-    btn.classList.remove('copied');
-  }, 2000);
-}
-```
-
-> **重要**: 不要使用传统的 `document.execCommand('copy')` 作为主方案，它在 Safari 等浏览器中可能丢失 HTML 格式。
+> 生成的预览 HTML 必须包含标准复制函数（Clipboard API 主方案 + execCommand 降级）。详见 [references/copy-function.md](references/copy-function.md)。
 
 ## 已知限制与注意事项
 
@@ -421,6 +303,8 @@ async function copyContent() {
 | 容器 ID | 内容容器必须使用 `id="output"`（发布脚本依赖此 ID） |
 | 样式内联 | 所有样式必须写在元素 `style` 属性中 |
 | 图片占位符 | 格式为 `WECHATIMGPH_N`（N 从 1 开始） |
+| ⚠️ 预览辅助元素禁入内容区 | 预览提示文字（如"微信公众号预览 · 贴纸风格"）和复制按钮**必须**放在 `#output` 容器和 `.preview-wrapper` **外部**，使用 `position: fixed` 定位。预览标签放左上角，复制按钮放右侧悬浮。这些元素不属于文章内容，绝不能出现在文章主体区域内 |
+| ⚠️ 封面图位置 | 封面图（WECHATIMGPH_1）**必须**放在开篇白色卡片（前言段落）**之后**，不能放在前言之前。正确顺序：头部渐变区域 → 白色内容卡片（前言） → 封面图 → 正文分隔线 → 正文内容 |
 
 ### macOS 权限问题
 
@@ -439,51 +323,4 @@ sqlite3 ~/Library/Application\ Support/com.apple.TCC/TCC.db \
 
 ## 验证清单
 
-### 内容完整性检查（必做）
-- [ ] H2 标题数量是否与原文一致？
-- [ ] 所有表格行数是否与原文一致？
-- [ ] 附录/参考资料列表是否完整？
-- [ ] 图片占位符数量是否与原文图片数量一致？
-
-### 通用检查
-- [ ] 所有样式是否已内联（无 `<style>` 标签用于内容区域）？
-- [ ] 代码块的长行是否已处理为可自动换行的 HTML 结构？
-- [ ] 图片占位符是否包含原始文件名以便用户替换？
-- [ ] 复制功能是否使用 Clipboard API + text/html blob？
-- [ ] 所有正文段落 font-size 是否为 16px？
-- [ ] 所有 `<th>` 和 `<td>` 是否**显式**包含 `font-size: 16px`？
-- [ ] HTML 内容容器是否使用 `id="output"`？
-
-### Claude 风格检查
-- [ ] 表格背景色是否已正确应用到 `td` 标签？
-- [ ] 引用块 (blockquote) 的边框是否符合主题配色？
-- [ ] 段落行高为 1.75 (line-height: 1.75)？
-- [ ] 字间距为 0.05em (letter-spacing: 0.05em)？
-- [ ] H2 有底部虚线 (border-bottom: 1px dashed)？
-- [ ] 分隔线使用渐变 (linear-gradient)？
-- [ ] 外层容器有极淡背景 (rgba(0,0,0,0.02))？
-
-### 橙韵风格检查
-- [ ] 头部渐变区域是否完整（标签、主标题、副标题、日期）？
-- [ ] 白色内容卡片是否使用负 margin 上移？
-- [ ] 章节标题是否使用中文序号方块（一、二、三...）？
-- [ ] 引用块是否使用浅黄渐变背景和左边框？
-- [ ] 分隔线是否使用渐变效果？
-
-### 蓝色专业风格检查
-- [ ] 头部蓝色渐变区域是否完整（标签、主标题、副标题、数据来源）？
-- [ ] 白色内容卡片是否使用负 margin 上移和圆角阴影？
-- [ ] 章节标题是否使用蓝色中文序号方块（一、二、三...）？
-- [ ] 引用块是否使用浅蓝渐变背景和蓝色左边框？
-- [ ] 分隔线是否使用蓝色渐变效果？
-- [ ] 强调文字是否使用 `#2563eb` 蓝色？
-
-### 贴纸风格检查
-- [ ] 头部橙色渐变区域是否完整（标签、主标题、副标题、来源信息）？
-- [ ] 白色内容卡片是否使用负 margin 上移和圆角阴影？
-- [ ] 旋转贴纸是否使用 `transform: rotate(-15deg)`？
-- [ ] 贴纸序号是否使用两位数格式（01, 02...）+ 英文标签？
-- [ ] 引用块是否使用 `#FAF9F7` 灰色背景和橙色左边框？
-- [ ] 提示块是否使用 `#FFF5F0` 浅橙背景？
-- [ ] 分隔线是否使用橙色渐变效果？
-- [ ] 强调文字是否使用 `#D97757` 橙色？
+> 转换完成后按 [references/verification-checklist.md](references/verification-checklist.md) 逐项检查。
