@@ -11,7 +11,7 @@
     </div>
     
     <!-- 文章内容容器 -->
-    <div id="wechat-content" style="max-width: 677px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif; color: #2D2D2D; line-height: 1.75; letter-spacing: 0.034em; background-color: #FFFFFF; background: rgba(0,0,0,0.02); border-radius: 12px;">
+    <div id="output" style="max-width: 677px; margin: 0 auto; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei UI', 'Microsoft YaHei', Arial, sans-serif; color: #2D2D2D; line-height: 1.75; letter-spacing: 0.034em; background-color: #FFFFFF; background: rgba(0,0,0,0.02); border-radius: 12px;">
 
 <!-- ====================================== -->
 <!-- 在此插入转换后的 HTML 内容               -->
@@ -26,34 +26,48 @@
     </div>
 
     <!-- 一键复制按钮 -->
-    <button id="copy-btn" style="position: fixed; bottom: 30px; right: 30px; padding: 14px 28px; background: linear-gradient(135deg, #D97757 0%, #E8956D 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; z-index: 1000;" onclick="copyContent()">
-        一键复制
+    <button class="copy-btn" style="position: fixed; bottom: 30px; right: 30px; padding: 14px 28px; background: linear-gradient(135deg, #D97757 0%, #E8956D 100%); color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; z-index: 1000;" onclick="copyContent()">
+        📋 复制全文
     </button>
 
     <script>
-    function copyContent() {
-        const content = document.getElementById('wechat-content');
+    async function copyContent() {
+      const content = document.getElementById('output');
+      const btn = document.querySelector('.copy-btn');
+      
+      try {
+        // Primary: Clipboard API (preserves HTML format)
+        const htmlContent = content.innerHTML;
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const textBlob = new Blob([content.innerText], { type: 'text/plain' });
+        
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            'text/html': blob,
+            'text/plain': textBlob
+          })
+        ]);
+        
+        btn.textContent = '✅ 已复制';
+        btn.classList.add('copied');
+      } catch (err) {
+        // Fallback: legacy select + execCommand
         const range = document.createRange();
-        range.selectNode(content);
-        window.getSelection().removeAllRanges();
-        window.getSelection().addRange(range);
+        range.selectNodeContents(content);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand('copy');
+        selection.removeAllRanges();
         
-        try {
-            const successful = document.execCommand('copy');
-            if (successful) {
-                const btn = document.getElementById('copy-btn');
-                btn.textContent = '已复制!';
-                btn.style.background = 'linear-gradient(135deg, #4CAF50 0%, #66BB6A 100%)';
-                setTimeout(() => {
-                    btn.textContent = '一键复制';
-                    btn.style.background = 'linear-gradient(135deg, #D97757 0%, #E8956D 100%)';
-                }, 2000);
-            }
-        } catch (err) {
-            alert('复制失败，请手动选择内容复制');
-        }
-        
-        window.getSelection().removeAllRanges();
+        btn.textContent = '✅ 已复制';
+        btn.classList.add('copied');
+      }
+      
+      setTimeout(() => {
+        btn.textContent = '📋 复制全文';
+        btn.classList.remove('copied');
+      }, 2000);
     }
     </script>
 </body>
