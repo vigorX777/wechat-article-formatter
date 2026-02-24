@@ -174,12 +174,181 @@ async function pressDeleteKey(session: ChromeSession): Promise<void> {
   await session.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 }, { sessionId: session.sessionId });
 }
 
+async function waitForSelector(session: ChromeSession, selectors: string[], timeoutMs = 15_000): Promise<string | null> {
+  const selectorList = JSON.stringify(selectors);
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const result = await session.cdp.send<{ result: { value: string } }>('Runtime.evaluate', {
+      expression: `
+        (() => {
+          const selectors = ${selectorList};
+          for (const s of selectors) {
+            if (document.querySelector(s)) return s;
+          }
+          return '';
+        })()
+      `,
+      returnByValue: true,
+    }, { sessionId: session.sessionId });
+    if (result.result.value) return result.result.value;
+    await sleep(500);
+  }
+  return null;
+}
+
+async function clickBySelector(session: ChromeSession, selector: string): Promise<boolean> {
+  const result = await session.cdp.send<{ result: { value: boolean } }>('Runtime.evaluate', {
+    expression: `
+      (() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return false;
+        el.scrollIntoView({ block: 'center' });
+        el.click();
+        return true;
+      })()
+    `,
+    returnByValue: true,
+  }, { sessionId: session.sessionId });
+  return result.result.value;
+}
+
+async function findFileInput(session: ChromeSession, timeoutMs = 10_000): Promise<number | null> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const { root } = await session.cdp.send<{ root: { nodeId: number } }>('DOM.getDocument', {}, { sessionId: session.sessionId });
+    const selectors = [
+      'input[type="file"][accept*="image"]',
+      'input[type="file"][accept*="jpeg"]',
+      'input[type="file"][accept*="png"]',
+      'input[type="file"]',
+    ];
+    for (const selector of selectors) {
+      try {
+        const { nodeId } = await session.cdp.send<{ nodeId: number }>('DOM.querySelector', {
+          nodeId: root.nodeId,
+          selector,
+        }, { sessionId: session.sessionId });
+        if (nodeId) return nodeId;
+      } catch { /* selector not found */ }
+    }
+    await sleep(500);
+  }
+  return null;
+}
+
 async function uploadCoverImage(session: ChromeSession, coverPath: string): Promise<void> {
-  console.log(`[wechat] Uploading cover image: ${coverPath}`);
+  const absolutePath = path.isAbsolute(coverPath) ? coverPath : path.resolve(process.cwd(), coverPath);
+  if (!fs.existsSync(absolutePath)) {
+    throw new Error(`Cover image not found: ${absolutePath}`);
+  }
+  console.log(`[wechat] Uploading cover image: ${absolutePath}`);
+
+  // Step 1: Click cover area → opens material dialog
+  console.log('[wechat] Clicking cover area...');
   await clickElement(session, '#js_cover_img_area');
-  await sleep(1000);
-  
-  console.log('[wechat] Note: Cover upload requires manual interaction or file input handling');
+  await sleep(2000);
+
+  // Step 2: Find and click "上传图片" tab in the material dialog
+  const uploadTabSelectors = [
+    '.js_upload_tab',
+    '.weui-desktop-dialog .upload-tab',
+    '[class*="upload"]',
+  ];
+  const uploadTab = await waitForSelector(session, uploadTabSelectors, 5_000);
+  if (uploadTab) {
+    console.log(`[wechat] Found upload tab: ${uploadTab}`);
+    await clickBySelector(session, uploadTab);
+    await sleep(1000);
+  } else {
+    // Try clicking text "上传图片" via text content search
+    console.log('[wechat] Upload tab not found by selector, trying text match...');
+    const clicked = await session.cdp.send<{ result: { value: boolean } }>('Runtime.evaluate', {
+      expression: `
+        (() => {
+          // Look for any clickable element with upload-related text in the dialog
+          const texts = ['上传图片', '本地上传', '从电脑上传', '选择文件'];
+          const candidates = document.querySelectorAll('.weui-desktop-dialog a, .weui-desktop-dialog button, .weui-desktop-dialog .weui-desktop-tab__nav-item, .weui-desktop-dialog [role="tab"], [class*="tab"]');
+          for (const el of candidates) {
+            const t = (el.textContent || '').trim();
+            if (texts.some(x => t.includes(x))) {
+              el.click();
+              return true;
+            }
+          }
+          return false;
+        })()
+      `,
+      returnByValue: true,
+    }, { sessionId: session.sessionId });
+    if (clicked.result.value) {
+      console.log('[wechat] Clicked upload tab via text match');
+      await sleep(1000);
+    }
+  }
+
+  // Step 3: Find hidden file input and inject file via CDP
+  console.log('[wechat] Looking for file input...');
+  const fileNodeId = await findFileInput(session, 10_000);
+  if (!fileNodeId) {
+    console.warn('[wechat] ⚠ File input not found. Cover image upload requires manual interaction.');
+    console.warn('[wechat]   Please upload the cover image manually in the browser window.');
+    return;
+  }
+
+  console.log(`[wechat] Found file input (nodeId: ${fileNodeId}), injecting file...`);
+  await session.cdp.send('DOM.setFileInputFiles', {
+    nodeId: fileNodeId,
+    files: [absolutePath],
+  }, { sessionId: session.sessionId });
+  console.log('[wechat] File injected, waiting for upload processing...');
+  await sleep(3000);
+
+  // Step 4: Handle crop/confirm dialog
+  // WeChat shows a crop dialog after image upload with ratio options (2.35:1, 1:1)
+  // and a confirm button
+  console.log('[wechat] Looking for crop confirm button...');
+  const cropConfirmSelectors = [
+    '.weui-desktop-dialog .weui-desktop-btn_primary',
+    '.js_crop_confirm',
+    '.weui-desktop-dialog .btn_primary',
+    '.weui-desktop-dialog button[class*="primary"]',
+    '.image-cropper .weui-desktop-btn_primary',
+  ];
+  const confirmBtn = await waitForSelector(session, cropConfirmSelectors, 10_000);
+  if (confirmBtn) {
+    console.log(`[wechat] Found crop confirm button: ${confirmBtn}`);
+    // Small delay to let crop UI render fully
+    await sleep(1000);
+    await clickBySelector(session, confirmBtn);
+    await sleep(2000);
+    console.log('[wechat] Cover image uploaded and confirmed.');
+  } else {
+    // Fallback: try clicking any primary button in a dialog
+    console.log('[wechat] Crop confirm button not found by selector, trying text match...');
+    const confirmed = await session.cdp.send<{ result: { value: boolean } }>('Runtime.evaluate', {
+      expression: `
+        (() => {
+          const texts = ['完成', '确定', '确认', '保存'];
+          const btns = document.querySelectorAll('.weui-desktop-dialog button, .weui-desktop-dialog .weui-desktop-btn');
+          for (const btn of btns) {
+            const t = (btn.textContent || '').trim();
+            if (texts.some(x => t === x)) {
+              btn.click();
+              return true;
+            }
+          }
+          return false;
+        })()
+      `,
+      returnByValue: true,
+    }, { sessionId: session.sessionId });
+    if (confirmed.result.value) {
+      console.log('[wechat] Clicked confirm via text match');
+      await sleep(2000);
+    } else {
+      console.warn('[wechat] ⚠ Could not find confirm button. Please confirm crop manually.');
+    }
+  }
 }
 
 async function saveDraft(session: ChromeSession): Promise<void> {
@@ -204,6 +373,56 @@ function parseManifest(manifestPath: string): Manifest {
   return JSON.parse(content) as Manifest;
 }
 
+function preflightCheck(htmlFile: string, manifest: Manifest, manifestFile?: string): void {
+  console.log('[wechat] Running pre-flight checks...');
+  const errors: string[] = [];
+
+  const htmlContent = fs.readFileSync(htmlFile, 'utf-8');
+  const contentImages = manifest.contentImages || [];
+
+  for (const img of contentImages) {
+    let imagePath = img.localPath;
+    if (manifestFile && !path.isAbsolute(imagePath)) {
+      imagePath = path.resolve(path.dirname(manifestFile), imagePath);
+    }
+    if (!fs.existsSync(imagePath)) {
+      errors.push(`[Missing file] ${img.placeholder} → ${imagePath}`);
+    }
+  }
+
+  const htmlPlaceholders: string[] = htmlContent.match(/WECHATIMGPH_\d+/g) ?? [];
+  const uniqueHtmlPlaceholders = [...new Set(htmlPlaceholders)];
+  const manifestPlaceholders = new Set(contentImages.map(img => img.placeholder));
+
+  for (const ph of uniqueHtmlPlaceholders) {
+    if (!manifestPlaceholders.has(ph)) {
+      errors.push(`[Unmapped placeholder] ${ph} found in HTML but missing in manifest.json`);
+    }
+  }
+
+  for (const img of contentImages) {
+    if (!uniqueHtmlPlaceholders.includes(img.placeholder)) {
+      errors.push(`[Orphan mapping] ${img.placeholder} in manifest.json but not found in HTML`);
+    }
+  }
+
+  const effectiveCover = manifest.coverImage;
+  if (effectiveCover && !fs.existsSync(effectiveCover)) {
+    errors.push(`[Missing cover] ${effectiveCover}`);
+  }
+
+  if (errors.length > 0) {
+    console.error('[wechat] ❌ Pre-flight check FAILED:');
+    for (const err of errors) {
+      console.error(`  ${err}`);
+    }
+    console.error('\n[wechat] Hint: After changing images or article content, re-run Step 7 (wechat-article-formatter) to regenerate article.html + raw-content.txt + manifest.json together.');
+    throw new Error(`Pre-flight check failed with ${errors.length} error(s). Fix issues before publishing.`);
+  }
+
+  console.log(`[wechat] ✅ Pre-flight check passed (${contentImages.length} images, ${uniqueHtmlPlaceholders.length} placeholders)`);
+}
+
 export async function publishArticle(options: PublishOptions): Promise<void> {
   const { htmlFile, manifestFile, coverImage, profileDir } = options;
 
@@ -223,6 +442,8 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
 
   const contentImages = manifest.contentImages || [];
   const effectiveCover = coverImage || manifest.coverImage;
+
+  preflightCheck(htmlFile, manifest, manifestFile);
 
   const { cdp, chrome } = await launchChrome(WECHAT_URL, profileDir);
 
