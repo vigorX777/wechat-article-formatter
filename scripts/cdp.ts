@@ -10,6 +10,52 @@ export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Generic retry utility with exponential backoff.
+ * Retries `fn` up to `maxAttempts` times. If all attempts fail, throws the last error.
+ */
+export async function retry<T>(
+  fn: () => Promise<T>,
+  options?: { maxAttempts?: number; delayMs?: number; backoff?: number; label?: string },
+): Promise<T> {
+  const maxAttempts = options?.maxAttempts ?? 3;
+  const delayMs = options?.delayMs ?? 500;
+  const backoff = options?.backoff ?? 1.5;
+  const label = options?.label ?? 'operation';
+
+  let lastError: Error | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < maxAttempts) {
+        const wait = delayMs * Math.pow(backoff, attempt - 1);
+        console.log(`[cdp] ${label} failed (attempt ${attempt}/${maxAttempts}): ${lastError.message}. Retrying in ${Math.round(wait)}ms...`);
+        await sleep(wait);
+      }
+    }
+  }
+  throw lastError!;
+}
+
+/**
+ * Wait for an element matching `selector` to appear in the DOM, then return true.
+ * Returns false if timeout is reached.
+ */
+export async function waitForElement(session: ChromeSession, selector: string, timeoutMs = 10_000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const result = await session.cdp.send<{ result: { value: boolean } }>('Runtime.evaluate', {
+      expression: `!!document.querySelector('${selector.replace(/'/g, "\\'")}')`,
+      returnByValue: true,
+    }, { sessionId: session.sessionId });
+    if (result.result.value) return true;
+    await sleep(500);
+  }
+  return false;
+}
+
 export async function getFreePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
@@ -223,26 +269,33 @@ export async function waitForNewTab(cdp: CdpConnection, initialIds: Set<string>,
   throw new Error(`New tab not found: ${urlPattern}`);
 }
 
-export async function clickElement(session: ChromeSession, selector: string): Promise<void> {
-  const posResult = await session.cdp.send<{ result: { value: string } }>('Runtime.evaluate', {
-    expression: `
-      (function() {
-        const el = document.querySelector('${selector}');
-        if (!el) return 'null';
-        el.scrollIntoView({ block: 'center' });
-        const rect = el.getBoundingClientRect();
-        return JSON.stringify({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
-      })()
-    `,
-    returnByValue: true,
-  }, { sessionId: session.sessionId });
+export async function clickElement(session: ChromeSession, selector: string, options?: { waitMs?: number }): Promise<void> {
+  const waitMs = options?.waitMs ?? 10_000;
 
-  if (posResult.result.value === 'null') throw new Error(`Element not found: ${selector}`);
-  const pos = JSON.parse(posResult.result.value);
+  const found = await waitForElement(session, selector, waitMs);
+  if (!found) throw new Error(`Element not found after ${waitMs}ms: ${selector}`);
 
-  await session.cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
-  await sleep(50);
-  await session.cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
+  await retry(async () => {
+    const posResult = await session.cdp.send<{ result: { value: string } }>('Runtime.evaluate', {
+      expression: `
+        (function() {
+          const el = document.querySelector('${selector.replace(/'/g, "\\'")}');
+          if (!el) return 'null';
+          el.scrollIntoView({ block: 'center' });
+          const rect = el.getBoundingClientRect();
+          return JSON.stringify({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+        })()
+      `,
+      returnByValue: true,
+    }, { sessionId: session.sessionId });
+
+    if (posResult.result.value === 'null') throw new Error(`Element not found: ${selector}`);
+    const pos = JSON.parse(posResult.result.value);
+
+    await session.cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
+    await sleep(50);
+    await session.cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
+  }, { maxAttempts: 3, delayMs: 500, label: `clickElement(${selector})` });
 }
 
 export async function typeText(session: ChromeSession, text: string): Promise<void> {

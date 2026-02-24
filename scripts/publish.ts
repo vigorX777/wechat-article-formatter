@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
-import { launchChrome, getPageSession, waitForNewTab, clickElement, evaluate, sleep, type ChromeSession, type CdpConnection } from './cdp.ts';
+import { launchChrome, getPageSession, waitForNewTab, clickElement, evaluate, sleep, retry, waitForElement, type ChromeSession, type CdpConnection } from './cdp.ts';
 import { copyImageToClipboard, copyHtmlToClipboard } from './clipboard.ts';
 
 const WECHAT_URL = 'https://mp.weixin.qq.com/';
@@ -40,30 +40,33 @@ async function waitForLogin(session: ChromeSession, timeoutMs = 120_000): Promis
 
 async function clickMenuByText(session: ChromeSession, text: string): Promise<void> {
   console.log(`[wechat] Clicking "${text}" menu...`);
-  const posResult = await session.cdp.send<{ result: { value: string } }>('Runtime.evaluate', {
-    expression: `
-      (function() {
-        const items = document.querySelectorAll('.new-creation__menu .new-creation__menu-item');
-        for (const item of items) {
-          const title = item.querySelector('.new-creation__menu-title');
-          if (title && title.textContent?.trim() === '${text}') {
-            item.scrollIntoView({ block: 'center' });
-            const rect = item.getBoundingClientRect();
-            return JSON.stringify({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+
+  await retry(async () => {
+    const posResult = await session.cdp.send<{ result: { value: string } }>('Runtime.evaluate', {
+      expression: `
+        (function() {
+          const items = document.querySelectorAll('.new-creation__menu .new-creation__menu-item');
+          for (const item of items) {
+            const title = item.querySelector('.new-creation__menu-title');
+            if (title && title.textContent?.trim() === '${text}') {
+              item.scrollIntoView({ block: 'center' });
+              const rect = item.getBoundingClientRect();
+              return JSON.stringify({ x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 });
+            }
           }
-        }
-        return 'null';
-      })()
-    `,
-    returnByValue: true,
-  }, { sessionId: session.sessionId });
+          return 'null';
+        })()
+      `,
+      returnByValue: true,
+    }, { sessionId: session.sessionId });
 
-  if (posResult.result.value === 'null') throw new Error(`Menu "${text}" not found`);
-  const pos = JSON.parse(posResult.result.value);
+    if (posResult.result.value === 'null') throw new Error(`Menu "${text}" not found`);
+    const pos = JSON.parse(posResult.result.value);
 
-  await session.cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
-  await sleep(100);
-  await session.cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
+    await session.cdp.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
+    await sleep(100);
+    await session.cdp.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: pos.x, y: pos.y, button: 'left', clickCount: 1 }, { sessionId: session.sessionId });
+  }, { maxAttempts: 5, delayMs: 1000, label: `clickMenuByText(${text})` });
 }
 
 async function sendCopy(cdp?: CdpConnection, sessionId?: string): Promise<void> {
@@ -101,23 +104,34 @@ async function copyHtmlFromBrowser(cdp: CdpConnection, htmlFilePath: string): Pr
 
   await cdp.send('Page.enable', {}, { sessionId });
   await cdp.send('Runtime.enable', {}, { sessionId });
-  await sleep(2000);
+
+  const tempSession: ChromeSession = { cdp, sessionId, targetId };
+  const contentReady = await waitForElement(tempSession, '#output, #wechat-content, body', 5_000);
+  if (!contentReady) {
+    console.warn('[wechat] Content container not found, proceeding with body fallback');
+  }
+  await sleep(500);
 
   console.log('[wechat] Selecting content from #output or #wechat-content...');
-  await cdp.send<{ result: { value: unknown } }>('Runtime.evaluate', {
+  const selected = await cdp.send<{ result: { value: boolean } }>('Runtime.evaluate', {
     expression: `
       (function() {
         const output = document.querySelector('#output') || document.querySelector('#wechat-content') || document.body;
+        if (!output || !output.textContent?.trim()) return false;
         const range = document.createRange();
         range.selectNodeContents(output);
         const selection = window.getSelection();
         selection.removeAllRanges();
         selection.addRange(range);
-        return true;
+        return selection.toString().length > 0;
       })()
     `,
     returnByValue: true,
   }, { sessionId });
+
+  if (!selected.result.value) {
+    console.warn('[wechat] ⚠ Content selection may be empty — no text detected in container');
+  }
   await sleep(300);
 
   console.log('[wechat] Copying content...');
@@ -131,7 +145,19 @@ async function copyHtmlFromBrowser(cdp: CdpConnection, htmlFilePath: string): Pr
 async function pasteFromClipboardInEditor(session: ChromeSession): Promise<void> {
   console.log('[wechat] Pasting content...');
   await sendPaste(session.cdp, session.sessionId);
-  await sleep(1000);
+  await sleep(1500);
+
+  const hasContent = await evaluate<boolean>(session, `
+    (() => {
+      const editor = document.querySelector('.ProseMirror');
+      return !!(editor && editor.textContent && editor.textContent.trim().length > 10);
+    })()
+  `);
+  if (!hasContent) {
+    console.warn('[wechat] ⚠ Editor may be empty after paste — retrying paste...');
+    await sendPaste(session.cdp, session.sessionId);
+    await sleep(2000);
+  }
 }
 
 async function selectAndReplacePlaceholder(session: ChromeSession, placeholder: string): Promise<boolean> {
@@ -353,16 +379,31 @@ async function uploadCoverImage(session: ChromeSession, coverPath: string): Prom
 
 async function saveDraft(session: ChromeSession): Promise<void> {
   console.log('[wechat] Saving as draft...');
-  await evaluate(session, `document.querySelector('#js_submit button').click()`);
-  await sleep(3000);
 
-  const saved = await evaluate<boolean>(session, `!!document.querySelector('.weui-desktop-toast')`);
-  if (saved) {
-    console.log('[wechat] Draft saved successfully!');
-  } else {
-    console.log('[wechat] Waiting for save confirmation...');
-    await sleep(5000);
+  await retry(async () => {
+    const btnExists = await evaluate<boolean>(session, `!!document.querySelector('#js_submit button')`);
+    if (!btnExists) throw new Error('Save button not found');
+    await evaluate(session, `document.querySelector('#js_submit button').click()`);
+  }, { maxAttempts: 3, delayMs: 1000, label: 'saveDraft-click' });
+
+  const start = Date.now();
+  const timeoutMs = 15_000;
+  while (Date.now() - start < timeoutMs) {
+    const toastVisible = await evaluate<boolean>(session, `
+      (() => {
+        const toast = document.querySelector('.weui-desktop-toast');
+        if (!toast) return false;
+        const text = toast.textContent || '';
+        return text.includes('成功') || text.includes('保存') || toast.offsetParent !== null;
+      })()
+    `);
+    if (toastVisible) {
+      console.log('[wechat] Draft saved successfully!');
+      return;
+    }
+    await sleep(500);
   }
+  console.warn('[wechat] ⚠ Save confirmation toast not detected within timeout — draft may still have been saved');
 }
 
 function parseManifest(manifestPath: string): Manifest {
@@ -449,9 +490,10 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
 
   try {
     console.log('[wechat] Waiting for page load...');
-    await sleep(3000);
-
-    let session = await getPageSession(cdp, 'mp.weixin.qq.com');
+    let session = await retry(
+      () => getPageSession(cdp, 'mp.weixin.qq.com'),
+      { maxAttempts: 6, delayMs: 1000, label: 'getPageSession' },
+    );
 
     const url = await evaluate<string>(session, 'window.location.href');
     if (!url.includes('/cgi-bin/home')) {
@@ -460,13 +502,16 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
       if (!loggedIn) throw new Error('Login timeout');
     }
     console.log('[wechat] Logged in.');
-    await sleep(2000);
+
+    const menuReady = await waitForElement(session, '.new-creation__menu', 10_000);
+    if (!menuReady) {
+      console.warn('[wechat] ⚠ Menu container not detected, proceeding anyway...');
+    }
 
     const targets = await cdp.send<{ targetInfos: Array<{ targetId: string; url: string; type: string }> }>('Target.getTargets');
     const initialIds = new Set(targets.targetInfos.map(t => t.targetId));
 
     await clickMenuByText(session, '文章');
-    await sleep(3000);
 
     const editorTargetId = await waitForNewTab(cdp, initialIds, 'mp.weixin.qq.com');
     console.log('[wechat] Editor tab opened.');
@@ -478,7 +523,10 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
     await cdp.send('Runtime.enable', {}, { sessionId });
     await cdp.send('DOM.enable', {}, { sessionId });
 
-    await sleep(3000);
+    const editorReady = await waitForSelector(session, ['.ProseMirror', '#title'], 15_000);
+    if (!editorReady) {
+      console.warn('[wechat] ⚠ Editor may not be fully loaded, proceeding...');
+    }
 
     if (manifest.title) {
       console.log('[wechat] Filling title...');
@@ -490,20 +538,18 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
       await evaluate(session, `document.querySelector('#author').value = ${JSON.stringify(manifest.author)}; document.querySelector('#author').dispatchEvent(new Event('input', { bubbles: true }));`);
     }
 
-    console.log('[wechat] Clicking on editor...');
+    console.log('[wechat] Focusing editor...');
     await clickElement(session, '.ProseMirror');
-    await sleep(1000);
-
-    console.log('[wechat] Ensuring editor focus...');
+    await sleep(300);
     await clickElement(session, '.ProseMirror');
-    await sleep(500);
+    await sleep(300);
 
     console.log(`[wechat] Copying HTML content from: ${htmlFile}`);
     await copyHtmlFromBrowser(cdp, htmlFile);
     await sleep(500);
     console.log('[wechat] Pasting into editor...');
     await pasteFromClipboardInEditor(session);
-    await sleep(3000);
+    await sleep(1000);
 
     if (contentImages.length > 0) {
       console.log(`[wechat] Inserting ${contentImages.length} images...`);
@@ -511,7 +557,15 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
         const img = contentImages[i]!;
         console.log(`[wechat] [${i + 1}/${contentImages.length}] Processing: ${img.placeholder}`);
 
-        const found = await selectAndReplacePlaceholder(session, img.placeholder);
+        let found = false;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          found = await selectAndReplacePlaceholder(session, img.placeholder);
+          if (found) break;
+          if (attempt < 3) {
+            console.log(`[wechat] Placeholder "${img.placeholder}" not found (attempt ${attempt}/3), waiting...`);
+            await sleep(2000);
+          }
+        }
         if (!found) {
           console.warn(`[wechat] Placeholder not found: ${img.placeholder}`);
           continue;
