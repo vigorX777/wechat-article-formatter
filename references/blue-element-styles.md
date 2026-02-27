@@ -1,3 +1,5 @@
+> **CSS 兼容性速查**: div 上样式用 table+td 替代 | tr 背景色写在 td 上 | th/td 必须显式 font-size | 代码块用 br+nbsp 替代 white-space | 不支持 flex/grid/box-shadow/var()/position | 完整规范见 SKILL.md
+
 # WeChat Article Formatter: 蓝色专业主题样式
 
 本文档包含蓝色专业主题的元素样式模板，适用于数据分析报告、用户研究、商业报告等专业内容。

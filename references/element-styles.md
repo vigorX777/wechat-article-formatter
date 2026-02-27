@@ -1,3 +1,5 @@
+> **CSS 兼容性速查**: div 上样式用 table+td 替代 | tr 背景色写在 td 上 | th/td 必须显式 font-size | 代码块用 br+nbsp 替代 white-space | 不支持 flex/grid/box-shadow/var()/position | 完整规范见 SKILL.md
+
 # WeChat Article Formatter: Element Styles
 
 本文档包含了 `wechat-article-formatter` Skill 使用的元素样式模板，旨在将常用的 Markdown 元素转换为与微信公众号完全兼容的 HTML 结构和内联样式。

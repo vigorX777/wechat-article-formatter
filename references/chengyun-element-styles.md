@@ -1,3 +1,5 @@
+> **CSS 兼容性速查**: div 上样式用 table+td 替代 | tr 背景色写在 td 上 | th/td 必须显式 font-size | 代码块用 br+nbsp 替代 white-space | 不支持 flex/grid/box-shadow/var()/position | 完整规范见 SKILL.md
+
 # 橙韵风格：Element Styles
 
 本文档包含了 `wechat-article-formatter` Skill 的「橙韵」主题元素样式模板，旨在将 Markdown 元素转换为与微信公众号完全兼容的 HTML 结构和内联样式。
@@ -117,7 +119,7 @@
 - 圆角：`16px`
 - 阴影：`rgba(0, 0, 0, 0.06) 0px 8px 30px`
 
-**用途：** 放置文章开篇引言、摘要等重点内容
+**用途：** 放置文章开篇引言（**仅限一段精炼的核心观点或数据 hook，不超过 2-3 句话**）。自我介绍、背景铺垫、过渡段落等内容不放入此卡片，应置于卡片之后作为正文开头。卡片内容过多会导致白色区域过高，破坏视觉层次。
 
 ---
 

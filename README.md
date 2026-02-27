@@ -107,7 +107,7 @@ Markdown 文稿
 
 ```
 wechat-article-formatter/
-├── SKILL.md                    # Skill 定义（LLM 读取的主入口）
+├── SKILL.md                    # Skill 定义（LLM 读取的主入口，~8.7KB 路由文档）
 ├── README.md                   # 本文件
 ├── assets/                     # HTML 预览模板
 │   ├── template.html           # Claude 风格模板
@@ -118,15 +118,15 @@ wechat-article-formatter/
 │   ├── publish.ts              # CDP 发布主流程（617 行）
 │   ├── clipboard.ts            # 跨平台剪贴板操作（321 行）
 │   └── cdp.ts                  # Chrome DevTools Protocol 客户端（274 行）
-└── references/                 # 样式与规范参考文档
+└── references/                 # 样式与规范参考文档（按需加载）
     ├── themes.md               # 4 个主题定义 + 色系派生逻辑
-    ├── element-styles.md       # Claude 风格元素样式
-    ├── chengyun-element-styles.md  # 橙韵风格元素样式
-    ├── blue-element-styles.md  # 蓝色专业元素样式
-    ├── sticker-element-styles.md   # 贴纸风格元素样式
-    ├── css-compatibility.md    # 公众号 CSS 兼容性规范
-    ├── copy-function.md        # 复制按钮实现规范
-    └── verification-checklist.md   # 转换后验证清单
+    ├── element-styles.md       # Claude 风格元素样式（含 CSS 兼容性头）
+    ├── chengyun-element-styles.md  # 橙韵风格元素样式（含 CSS 兼容性头）
+    ├── blue-element-styles.md  # 蓝色专业元素样式（含 CSS 兼容性头）
+    ├── sticker-element-styles.md   # 贴纸风格元素样式（含 CSS 兼容性头）
+    ├── clone-theme-guide.md    # 模板复刻完整流程（按需加载）
+    ├── long-doc-strategy.md    # 长文档分段策略（>300 行时按需加载）
+    └── verification-checklist.md   # 转换后样式验证清单
 ```
 
 ## 环境要求
@@ -196,6 +196,16 @@ npx -y bun scripts/publish.ts --html <path> [options]
 
 ## 更新日志
 
+### v2.3.0 (2026-02-27)
+- **SKILL.md 大幅瘦身**：从 26.5KB / 612 行精简为 8.7KB / 206 行（-67%），转为纯路由文档
+- **上下文负载优化**：典型排版场景从 ~93KB 降至 ~30.5KB（-67%），显著提升生成速度
+- **新增 clone-theme-guide.md**：模板复刻完整流程提取为独立参考文档，仅在复刻模式按需加载
+- **新增 long-doc-strategy.md**：长文档分段策略提取为独立参考文档，长文阈值从 150 行提高至 300 行
+- **CSS 兼容性规则内联**：原 `css-compatibility.md` 独立文件删除，3 行兼容性提示头嵌入各主题样式文件
+- **复制函数内联**：原 `copy-function.md` 删除，实现直接嵌入 SKILL.md Step 6
+- **themes.md 精简**：从 221 行缩减至 139 行（-37%），移除冗余示例和已提取的复刻主题章节
+- **verification-checklist.md 精简**：从 69 行缩减至 47 行（-32%），内容完整性验证移入 long-doc-strategy.md
+
 ### v2.2.0 (2026-02-24)
 - **模板复刻模式**：新增 `/wechat-clone-theme <URL>` 命令，可从公众号文章 URL 复刻排版风格
 - **样式提取引擎**：HTTP 抓取文章 HTML → 自动提取配色、页面结构、15 类元素样式
@@ -213,7 +223,7 @@ npx -y bun scripts/publish.ts --html <path> [options]
 - **消除硬编码等待**：主流程中 5 个 `sleep()` 替换为 `waitForElement` / `waitForSelector` 条件等待
 
 ### v2.0.0 (2026-02-24)
-- **长文档分段转换**：>150 行文档按 H2 标题自动切分，逐段转换后拼接，解决长文内容丢失问题
+- **长文档分段转换**：>300 行文档按 H2 标题自动切分，逐段转换后拼接，解决长文内容丢失问题（v2.3.0 阈值从 150 调整为 300）
 - **自动结构验证**：转换后自动比对 H2/H3 数量、表格行数、列表项数、图片占位符数，不匹配时自动补漏
 - **封面图自动上传**：通过 CDP `DOM.setFileInputFiles` 实现封面图自动注入，支持裁剪确认弹窗处理
 - **SKILL.md 重构**：将重复内容抽离到 references/ 目录，SKILL.md 精简为工作流程定义
