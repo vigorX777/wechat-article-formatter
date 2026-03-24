@@ -111,10 +111,52 @@ export function getDefaultProfileDir(): string {
   return path.join(base, 'wechat-browser-profile');
 }
 
+function syncChromeLoginState(targetProfileDir: string): void {
+  if (process.platform !== 'darwin') return;
+
+  const sourceRoot = path.join(os.homedir(), 'Library', 'Application Support', 'Google', 'Chrome');
+  if (!fs.existsSync(sourceRoot)) return;
+  fs.mkdirSync(targetProfileDir, { recursive: true });
+
+  const excludedTopLevel = new Set([
+    'SingletonCookie',
+    'SingletonLock',
+    'SingletonSocket',
+    'RunningChromeVersion',
+    'Crashpad',
+    'BrowserMetrics',
+    'ShaderCache',
+    'GrShaderCache',
+    'GraphiteDawnCache',
+  ]);
+
+  for (const entry of fs.readdirSync(sourceRoot, { withFileTypes: true })) {
+    if (excludedTopLevel.has(entry.name)) continue;
+    const src = path.join(sourceRoot, entry.name);
+    const dst = path.join(targetProfileDir, entry.name);
+    try {
+      fs.cpSync(src, dst, { recursive: true, force: true, dereference: true });
+    } catch {
+      // Best-effort sync. Some transient profile files may be unreadable.
+    }
+  }
+}
+
 async function fetchJson<T = unknown>(url: string): Promise<T> {
   const res = await fetch(url, { redirect: 'follow' });
   if (!res.ok) throw new Error(`Request failed: ${res.status} ${res.statusText}`);
   return (await res.json()) as T;
+}
+
+async function tryConnectToExistingChrome(port: number): Promise<CdpConnection | null> {
+  try {
+    const version = await fetchJson<{ webSocketDebuggerUrl?: string }>(`http://127.0.0.1:${port}/json/version`);
+    if (!version.webSocketDebuggerUrl) return null;
+    console.log(`[cdp] Reusing existing Chrome debug session on port ${port}`);
+    return await CdpConnection.connect(version.webSocketDebuggerUrl, 10_000);
+  } catch {
+    return null;
+  }
 }
 
 async function waitForChromeDebugPort(port: number, timeoutMs: number): Promise<string> {
@@ -217,12 +259,28 @@ export interface ChromeSession {
   targetId: string;
 }
 
-export async function launchChrome(url: string, profileDir?: string): Promise<{ cdp: CdpConnection; chrome: ReturnType<typeof spawn> }> {
+export async function launchChrome(url: string, profileDir?: string): Promise<{ cdp: CdpConnection; chrome?: ReturnType<typeof spawn> }> {
+  const preferredPorts = [
+    process.env.WECHAT_BROWSER_DEBUG_PORT,
+    '9222',
+    '9223',
+    '9333',
+  ]
+    .filter(Boolean)
+    .map((value) => Number(value))
+    .filter((value) => Number.isFinite(value) && value > 0);
+
+  for (const port of preferredPorts) {
+    const cdp = await tryConnectToExistingChrome(port);
+    if (cdp) return { cdp };
+  }
+
   const chromePath = findChromeExecutable();
   if (!chromePath) throw new Error('Chrome not found. Set WECHAT_BROWSER_CHROME_PATH env var.');
 
   const profile = profileDir ?? getDefaultProfileDir();
   await mkdir(profile, { recursive: true });
+  syncChromeLoginState(profile);
 
   const port = await getFreePort();
   console.log(`[cdp] Launching Chrome (profile: ${profile})`);
