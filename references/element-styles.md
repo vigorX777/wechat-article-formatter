@@ -1,8 +1,15 @@
-> **CSS 兼容性速查**: div 上样式用 table+td 替代 | tr 背景色写在 td 上 | th/td 必须显式 font-size | 代码块用 br+nbsp 替代 white-space | 不支持 flex/grid/box-shadow/var()/position | 完整规范见 SKILL.md
+> **CSS 兼容性速查**: div 上样式用 table+td 替代 | tr 背景色写在 td 上 | th/td 必须显式 font-size | 代码块用 br+nbsp 替代 white-space | 不支持 flex/grid/box-shadow/var()/position | **需要圆角的 table 必须用 `border-collapse: separate; border-spacing: 0` + `overflow: hidden`**（`border-collapse: collapse` 会导致 `border-radius` 失效）| 完整规范见 SKILL.md
 
 # WeChat Article Formatter: Element Styles
 
 本文档包含了 `wechat-article-formatter` Skill 使用的元素样式模板，旨在将常用的 Markdown 元素转换为与微信公众号完全兼容的 HTML 结构和内联样式。
+
+## 全主题继承规则
+
+- 头部分类标签必须使用源 Markdown 明确提供的分类字段，不能留空，也不要在 HTML 阶段自动猜测。
+- 头部区域必须显示源 Markdown 提供的署名；只有项目已明确约定默认署名时才允许回填。
+- 前言卡片只放精简引言，不使用引用块视觉。
+- `WECHATIMGPH_1` 作为封面效果图，放在前言卡片文字之后，而不是单独挂在卡片外。
 
 ## 配色方案 (Claude 主题)
 
@@ -58,6 +65,30 @@
 {全文内容}
 </section>
 ```
+
+### 0.1 首屏结构（全主题统一）
+
+```html
+<section style="...">
+  <section style="...">
+    <span>{分类标签}</span>
+    <h1>{主标题}</h1>
+    <p>{副标题}</p>
+    <p>{署名}</p>
+  </section>
+
+  <section style="...">
+    <p>{前言第一段}</p>
+    <p>{前言第二段，可选}</p>
+    <table style="...">
+      <tbody><tr><td>WECHATIMGPH_1</td></tr></tbody>
+    </table>
+  </section>
+</section>
+```
+
+> **注意**：前言卡片不能调用下方的引用块模板。
+> **字段来源**：`{分类标签}`、`{署名}`、`{主标题}`、`{副标题}` 应来自源 Markdown 明确定义的首屏字段。
 
 ### 1. H1 标题（居中）
 ```html
@@ -148,10 +179,11 @@ command --flag=value<br>
 
 ### 12. 图片占位符
 > **限制**：必须使用 `table` 结构模拟，避免使用公众号支持较差的 `div`。占位符 `WECHATIMGPH_N` 会被 CDP 脚本识别并替换为实际图片。
+> ⚠️ **圆角注意**：图片占位符必须使用 `border-collapse: separate; border-spacing: 0`，不能用 `border-collapse: collapse`（会导致圆角失效）。
 ```html
-<table style="width: 100%; margin: 20px 0; border-collapse: collapse;">
+<table style="width: 100%; margin: 20px 0; border-collapse: separate; border-spacing: 0; border-radius: 8px; overflow: hidden;">
 <tbody><tr>
-<td style="background-color: #FFF5F0; border: 1px solid #D97757; color: #D97757; padding: 30px 20px; text-align: center; font-weight: bold; font-size: 14px;">
+<td style="background-color: #FFF5F0; border: 1px solid #D97757; color: #D97757; padding: 8px; text-align: center; font-weight: bold; font-size: 14px; border-radius: 8px;">
 WECHATIMGPH_1
 </td>
 </tr></tbody>

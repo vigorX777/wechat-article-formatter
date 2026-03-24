@@ -1,8 +1,15 @@
-> **CSS 兼容性速查**: div 上样式用 table+td 替代 | tr 背景色写在 td 上 | th/td 必须显式 font-size | 代码块用 br+nbsp 替代 white-space | 不支持 flex/grid/box-shadow/var()/position | 完整规范见 SKILL.md
+> **CSS 兼容性速查**: div 上样式用 table+td 替代 | tr 背景色写在 td 上 | th/td 必须显式 font-size | 代码块用 br+nbsp 替代 white-space | 不支持 flex/grid/box-shadow/var()/position | **需要圆角的 table 必须用 `border-collapse: separate; border-spacing: 0` + `overflow: hidden`**（`border-collapse: collapse` 会导致 `border-radius` 失效）| 完整规范见 SKILL.md
 
 # WeChat Article Formatter: 蓝色专业主题样式
 
 本文档包含蓝色专业主题的元素样式模板，适用于数据分析报告、用户研究、商业报告等专业内容。
+
+## 全主题统一要求
+
+- 头部胶囊标签显示源 Markdown 明确提供的分类字段。
+- 头部区域内显示源 Markdown 提供的署名。
+- 前言卡片只用普通引言段落，不使用引用块视觉。
+- `WECHATIMGPH_1` 作为封面效果图放入前言卡片内部，位于前言文字之后。
 
 ## 配色方案 (蓝色专业主题)
 
@@ -76,14 +83,21 @@
   <p style="margin: 0px; color: rgba(255, 255, 255, 0.9); font-size: 16px; line-height: 1.6;">{副标题}</p>
   <!-- 数据来源 -->
   <p style="margin: 20px 0 0 0; color: rgba(255, 255, 255, 0.8); font-size: 15px;">{数据来源}</p>
+  <!-- 作者 -->
+  <p style="margin: 18px 0 0 0; color: rgba(255, 255, 255, 0.92); font-size: 14px;">{署名}</p>
 </section>
 
 <!-- 内容卡片 -->
 <section style="box-sizing: border-box; padding: 28px 22px; background: #ffffff; margin: -20px 15px 24px; border-radius: 16px; box-shadow: rgba(0, 0, 0, 0.06) 0px 8px 30px;">
-  <!-- 核心观点引用块 -->
-  <section style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 16px; padding: 20px 24px; border-left: 5px solid #2563eb; margin: 0;">
-    <p style="font-size: 16px; color: #1e3a5f; line-height: 2; letter-spacing: 0.3px; margin: 0;">{核心观点}</p>
-  </section>
+  <p style="font-size: 16px; color: #334155; line-height: 2.1; letter-spacing: 0.3px; margin: 0 0 14px 0;">{前言第一段}</p>
+  <p style="font-size: 16px; color: #334155; line-height: 2.1; letter-spacing: 0.3px; margin: 0;">{前言第二段，可选}</p>
+  <table style="width: 100%; margin: 20px 0 0 0; border-collapse: separate; border-spacing: 0; border-radius: 16px; overflow: hidden;">
+    <tbody><tr>
+      <td style="background-color: #eff6ff; border: 1px solid #2563eb; color: #2563eb; padding: 20px 16px; text-align: center; font-weight: bold; font-size: 16px; border-radius: 16px;">
+        WECHATIMGPH_1
+      </td>
+    </tr></tbody>
+  </table>
 </section>
 
 <!-- 正文区域 -->
@@ -95,6 +109,8 @@
 ```
 
 ---
+
+> **字段来源**：`{分类标签}`、`{主标题}`、`{副标题}`、`{署名}` 应来自源 Markdown 明确定义字段。
 
 ## 元素模板
 
@@ -129,6 +145,8 @@
 <p style="font-size: 16px; color: #1e3a5f; line-height: 2; letter-spacing: 0.3px; margin: 0;">{引用内容}</p>
 </section>
 ```
+
+> **注意**：此模板仅用于正文引用，不得用于前言卡片。
 
 ### 6. 渐变分隔线
 ```html
@@ -174,10 +192,12 @@
 ```
 
 ### 10. 图片占位符
+> ⚠️ **圆角注意**：图片占位符必须使用 `border-collapse: separate; border-spacing: 0`，不能用 `border-collapse: collapse`（会导致圆角失效）。
+
 ```html
-<table style="width: 100%; margin: 16px 0; border-collapse: collapse;">
+<table style="width: 100%; margin: 16px 0; border-collapse: separate; border-spacing: 0; border-radius: 8px; overflow: hidden;">
 <tbody><tr>
-<td style="background-color: #eff6ff; border: 1px solid #2563eb; color: #2563eb; padding: 30px 20px; text-align: center; font-weight: bold; font-size: 16px;">
+<td style="background-color: #eff6ff; border: 1px solid #2563eb; color: #2563eb; padding: 8px; text-align: center; font-weight: bold; font-size: 16px; border-radius: 8px;">
 WECHATIMGPH_1
 </td>
 </tr></tbody>
