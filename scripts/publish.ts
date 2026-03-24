@@ -16,6 +16,7 @@ interface ImageInfo {
 interface Manifest {
   title?: string;
   author?: string;
+  subtitle?: string;
   summary?: string;
   coverImage?: string;
   contentImages?: ImageInfo[];
@@ -26,6 +27,23 @@ interface PublishOptions {
   manifestFile?: string;
   coverImage?: string;
   profileDir?: string;
+}
+
+interface SaveDraftResult {
+  triggered: boolean;
+  toastDetected: boolean;
+  buttonSelector?: string;
+  method: 'selector' | 'text' | 'shortcut' | 'unknown';
+}
+
+interface PublishFlowVerdict {
+  titleOk: boolean;
+  authorOk: boolean;
+  summaryOk: boolean;
+  contentOk: boolean;
+  imageCountOk: boolean;
+  saveToastOk: boolean;
+  blockingDialog: boolean;
 }
 
 async function waitForLogin(session: ChromeSession, timeoutMs = 120_000): Promise<boolean> {
@@ -71,6 +89,8 @@ async function clickMenuByText(session: ChromeSession, text: string): Promise<vo
 
 async function sendCopy(cdp?: CdpConnection, sessionId?: string): Promise<void> {
   if (process.platform === 'darwin') {
+    spawnSync('osascript', ['-e', 'tell application "Google Chrome" to activate']);
+    await sleep(150);
     spawnSync('osascript', ['-e', 'tell application "System Events" to keystroke "c" using command down']);
   } else if (process.platform === 'linux') {
     spawnSync('xdotool', ['key', 'ctrl+c']);
@@ -81,8 +101,24 @@ async function sendCopy(cdp?: CdpConnection, sessionId?: string): Promise<void> 
   }
 }
 
+async function sendSave(cdp?: CdpConnection, sessionId?: string): Promise<void> {
+  if (process.platform === 'darwin') {
+    spawnSync('osascript', ['-e', 'tell application "Google Chrome" to activate']);
+    await sleep(150);
+    spawnSync('osascript', ['-e', 'tell application "System Events" to keystroke "s" using command down']);
+  } else if (process.platform === 'linux') {
+    spawnSync('xdotool', ['key', 'ctrl+s']);
+  } else if (cdp && sessionId) {
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 's', code: 'KeyS', modifiers: 2, windowsVirtualKeyCode: 83 }, { sessionId });
+    await sleep(50);
+    await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 's', code: 'KeyS', modifiers: 2, windowsVirtualKeyCode: 83 }, { sessionId });
+  }
+}
+
 async function sendPaste(cdp?: CdpConnection, sessionId?: string): Promise<void> {
   if (process.platform === 'darwin') {
+    spawnSync('osascript', ['-e', 'tell application "Google Chrome" to activate']);
+    await sleep(150);
     spawnSync('osascript', ['-e', 'tell application "System Events" to keystroke "v" using command down']);
   } else if (process.platform === 'linux') {
     spawnSync('xdotool', ['key', 'ctrl+v']);
@@ -93,56 +129,52 @@ async function sendPaste(cdp?: CdpConnection, sessionId?: string): Promise<void>
   }
 }
 
-async function copyHtmlFromBrowser(cdp: CdpConnection, htmlFilePath: string): Promise<void> {
+function getRawHtmlForClipboard(htmlFilePath: string): string {
   const absolutePath = path.isAbsolute(htmlFilePath) ? htmlFilePath : path.resolve(process.cwd(), htmlFilePath);
-  const fileUrl = `file://${absolutePath}`;
+  const siblingRawPath = path.join(path.dirname(absolutePath), 'raw-content.txt');
 
-  console.log(`[wechat] Opening HTML file in new tab: ${fileUrl}`);
-
-  const { targetId } = await cdp.send<{ targetId: string }>('Target.createTarget', { url: fileUrl });
-  const { sessionId } = await cdp.send<{ sessionId: string }>('Target.attachToTarget', { targetId, flatten: true });
-
-  await cdp.send('Page.enable', {}, { sessionId });
-  await cdp.send('Runtime.enable', {}, { sessionId });
-
-  const tempSession: ChromeSession = { cdp, sessionId, targetId };
-  const contentReady = await waitForElement(tempSession, '#output, #wechat-content, body', 5_000);
-  if (!contentReady) {
-    console.warn('[wechat] Content container not found, proceeding with body fallback');
+  if (fs.existsSync(siblingRawPath)) {
+    console.log(`[wechat] Using sibling raw-content.txt for clipboard HTML: ${siblingRawPath}`);
+    return fs.readFileSync(siblingRawPath, 'utf-8');
   }
-  await sleep(500);
 
-  console.log('[wechat] Selecting content from #output or #wechat-content...');
-  const selected = await cdp.send<{ result: { value: boolean } }>('Runtime.evaluate', {
-    expression: `
-      (function() {
-        const output = document.querySelector('#output') || document.querySelector('#wechat-content') || document.body;
-        if (!output || !output.textContent?.trim()) return false;
-        const range = document.createRange();
-        range.selectNodeContents(output);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-        return selection.toString().length > 0;
-      })()
-    `,
-    returnByValue: true,
-  }, { sessionId });
-
-  if (!selected.result.value) {
-    console.warn('[wechat] ⚠ Content selection may be empty — no text detected in container');
-  }
-  await sleep(300);
-
-  console.log('[wechat] Copying content...');
-  await sendCopy(cdp, sessionId);
-  await sleep(1000);
-
-  console.log('[wechat] Closing HTML tab...');
-  await cdp.send('Target.closeTarget', { targetId });
+  console.log('[wechat] raw-content.txt not found, falling back to HTML file contents');
+  return fs.readFileSync(absolutePath, 'utf-8');
 }
 
-async function pasteFromClipboardInEditor(session: ChromeSession): Promise<void> {
+async function copyHtmlForEditor(htmlFilePath: string): Promise<string> {
+  const htmlContent = getRawHtmlForClipboard(htmlFilePath);
+  console.log('[wechat] Copying prepared HTML into system clipboard...');
+  await copyHtmlToClipboard(htmlContent);
+  await sleep(500);
+  return htmlContent;
+}
+
+async function syntheticPasteHtml(session: ChromeSession, htmlContent: string): Promise<boolean> {
+  const textContent = htmlContent.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+
+  await evaluate(session, `window.__wechatPasteHtml = ${JSON.stringify(htmlContent)};`);
+  await evaluate(session, `window.__wechatPasteText = ${JSON.stringify(textContent)};`);
+
+  return await evaluate<boolean>(session, `
+    (() => {
+      const editor = document.querySelector('.ProseMirror');
+      if (!editor) return false;
+      editor.focus();
+      const dt = new DataTransfer();
+      dt.setData('text/html', window.__wechatPasteHtml || '');
+      dt.setData('text/plain', window.__wechatPasteText || '');
+      const evt = new ClipboardEvent('paste', {
+        clipboardData: dt,
+        bubbles: true,
+        cancelable: true,
+      });
+      return editor.dispatchEvent(evt);
+    })()
+  `);
+}
+
+async function pasteFromClipboardInEditor(session: ChromeSession, htmlContent?: string): Promise<void> {
   console.log('[wechat] Pasting content...');
   await sendPaste(session.cdp, session.sessionId);
   await sleep(1500);
@@ -154,9 +186,15 @@ async function pasteFromClipboardInEditor(session: ChromeSession): Promise<void>
     })()
   `);
   if (!hasContent) {
-    console.warn('[wechat] ⚠ Editor may be empty after paste — retrying paste...');
-    await sendPaste(session.cdp, session.sessionId);
-    await sleep(2000);
+    if (htmlContent) {
+      console.warn('[wechat] ⚠ Editor still empty after system paste — trying synthetic HTML paste...');
+      await syntheticPasteHtml(session, htmlContent);
+      await sleep(1500);
+    } else {
+      console.warn('[wechat] ⚠ Editor may be empty after paste — retrying paste...');
+      await sendPaste(session.cdp, session.sessionId);
+      await sleep(2000);
+    }
   }
 }
 
@@ -200,6 +238,26 @@ async function pressDeleteKey(session: ChromeSession): Promise<void> {
   await session.cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 }, { sessionId: session.sessionId });
 }
 
+async function getEditorImageCount(session: ChromeSession): Promise<number> {
+  return await evaluate<number>(session, `
+    (() => {
+      const editor = document.querySelector('.ProseMirror');
+      if (!editor) return 0;
+      return editor.querySelectorAll('img').length;
+    })()
+  `);
+}
+
+async function waitForEditorImageCountIncrease(session: ChromeSession, beforeCount: number, timeoutMs = 15_000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    const currentCount = await getEditorImageCount(session);
+    if (currentCount > beforeCount) return true;
+    await sleep(500);
+  }
+  return false;
+}
+
 async function waitForSelector(session: ChromeSession, selectors: string[], timeoutMs = 15_000): Promise<string | null> {
   const selectorList = JSON.stringify(selectors);
   const start = Date.now();
@@ -238,6 +296,102 @@ async function clickBySelector(session: ChromeSession, selector: string): Promis
   return result.result.value;
 }
 
+async function fillInputField(
+  session: ChromeSession,
+  label: string,
+  selectors: string[],
+  value: string,
+  options?: { required?: boolean },
+): Promise<boolean> {
+  const selector = await waitForSelector(session, selectors, 15_000);
+  if (!selector) {
+    if (options?.required) {
+      throw new Error(`${label} field not found`);
+    }
+    console.warn(`[wechat] ⚠ ${label} field not found.`);
+    return false;
+  }
+
+  console.log(`[wechat] Filling ${label} via ${selector}...`);
+  const normalizedValue = value.trim();
+  let verified = false;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    verified = await evaluate<boolean>(session, `
+      (() => {
+        const el = document.querySelector(${JSON.stringify(selector)});
+        if (!el) return false;
+        el.scrollIntoView({ block: 'center' });
+        if (typeof el.focus === 'function') el.focus();
+        if ('click' in el && typeof el.click === 'function') el.click();
+        el.value = ${JSON.stringify(normalizedValue)};
+        ['input', 'change', 'blur'].forEach(type => {
+          el.dispatchEvent(new Event(type, { bubbles: true }));
+        });
+        return (el.value || '').trim() === ${JSON.stringify(normalizedValue)};
+      })()
+    `);
+    if (verified) break;
+    console.warn(`[wechat] ${label} write verification failed (attempt ${attempt}/3), retrying...`);
+    await sleep(400);
+  }
+
+  if (!verified) {
+    const message = `${label} did not persist after input/change/blur events`;
+    if (options?.required) {
+      throw new Error(message);
+    }
+    console.warn(`[wechat] ⚠ ${message}`);
+    return false;
+  }
+
+  return true;
+}
+
+async function detectBlockingDialog(session: ChromeSession): Promise<boolean> {
+  return await evaluate<boolean>(session, `
+    (() => {
+      const dialog = document.querySelector('.weui-desktop-dialog, .weui-dialog, [role="dialog"]');
+      if (!dialog) return false;
+      const text = (dialog.textContent || '').trim();
+      const visible = dialog.offsetParent !== null || dialog.getBoundingClientRect().height > 0;
+      return visible && text.length > 0;
+    })()
+  `);
+}
+
+async function collectPublishFlowVerdict(
+  session: ChromeSession,
+  expected: { title?: string; author?: string; summary?: string; imageCount: number },
+  saveResult: SaveDraftResult,
+): Promise<PublishFlowVerdict> {
+  return await evaluate<PublishFlowVerdict>(session, `
+    (() => {
+      const titleEl = document.querySelector('#title');
+      const authorEl = document.querySelector('#author');
+      const summaryEl = document.querySelector('#js_description');
+      const editor = document.querySelector('.ProseMirror');
+      const dialog = document.querySelector('.weui-desktop-dialog, .weui-dialog, [role="dialog"]');
+      const dialogVisible = !!dialog && ((dialog.offsetParent !== null) || dialog.getBoundingClientRect().height > 0) && ((dialog.textContent || '').trim().length > 0);
+      const actualTitle = (titleEl?.value || '').trim();
+      const actualAuthor = (authorEl?.value || '').trim();
+      const actualSummary = (summaryEl?.value || '').trim();
+      const imageCount = editor ? editor.querySelectorAll('img').length : 0;
+      const textLen = (editor?.textContent || '').trim().length;
+
+      return {
+        titleOk: ${expected.title ? `actualTitle === ${JSON.stringify(expected.title.trim())}` : 'true'},
+        authorOk: ${expected.author ? `actualAuthor === ${JSON.stringify(expected.author.trim())}` : 'true'},
+        summaryOk: ${expected.summary ? `actualSummary === ${JSON.stringify(expected.summary.trim())}` : 'true'},
+        contentOk: textLen > 50,
+        imageCountOk: imageCount >= ${expected.imageCount},
+        saveToastOk: ${saveResult.toastDetected ? 'true' : 'false'},
+        blockingDialog: dialogVisible,
+      };
+    })()
+  `);
+}
+
 async function findFileInput(session: ChromeSession, timeoutMs = 10_000): Promise<number | null> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -271,7 +425,46 @@ async function uploadCoverImage(session: ChromeSession, coverPath: string): Prom
 
   // Step 1: Click cover area → opens material dialog
   console.log('[wechat] Clicking cover area...');
-  await clickElement(session, '#js_cover_img_area');
+  const coverAreaSelectors = [
+    '#js_cover_img_area',
+    '[data-target=\"cover\"]',
+    '[class*=\"cover\"][class*=\"img\"]',
+    '[class*=\"cover\"][class*=\"upload\"]',
+    '[class*=\"cover\"]',
+  ];
+  const coverArea = await waitForSelector(session, coverAreaSelectors, 10_000);
+  let clickedCover = false;
+  if (coverArea) {
+    console.log(`[wechat] Found cover area selector: ${coverArea}`);
+    clickedCover = await clickBySelector(session, coverArea);
+  }
+  if (!clickedCover) {
+    console.log('[wechat] Cover selector not found, trying text match...');
+    const clicked = await session.cdp.send<{ result: { value: boolean } }>('Runtime.evaluate', {
+      expression: `
+        (() => {
+          const texts = ['封面', '题图', '上传封面', '封面图'];
+          const candidates = Array.from(document.querySelectorAll('button, a, div, span'));
+          for (const el of candidates) {
+            const text = (el.textContent || '').trim();
+            const cls = (el.className || '').toString();
+            if (texts.some(t => text.includes(t)) || cls.includes('cover')) {
+              el.scrollIntoView({ block: 'center' });
+              el.click();
+              return true;
+            }
+          }
+          return false;
+        })()
+      `,
+      returnByValue: true,
+    }, { sessionId: session.sessionId });
+    clickedCover = clicked.result.value;
+  }
+  if (!clickedCover) {
+    console.warn('[wechat] ⚠ Cover area not found. Please upload the cover image manually in the browser window.');
+    return;
+  }
   await sleep(2000);
 
   // Step 2: Find and click "上传图片" tab in the material dialog
@@ -377,13 +570,91 @@ async function uploadCoverImage(session: ChromeSession, coverPath: string): Prom
   }
 }
 
-async function saveDraft(session: ChromeSession): Promise<void> {
+async function saveDraft(session: ChromeSession): Promise<SaveDraftResult> {
   console.log('[wechat] Saving as draft...');
 
+  let triggerMethod: SaveDraftResult['method'] = 'unknown';
+  let triggerSelector: string | undefined;
+
   await retry(async () => {
-    const btnExists = await evaluate<boolean>(session, `!!document.querySelector('#js_submit button')`);
-    if (!btnExists) throw new Error('Save button not found');
-    await evaluate(session, `document.querySelector('#js_submit button').click()`);
+    const saveSelectors = [
+      '#js_submit button',
+      '.js_submit button',
+      '#js_submit',
+      '.js_submit',
+      '#js_save',
+      '.weui-desktop-btn_primary',
+      'button[type="submit"]',
+      '[class*="submit"] button',
+      '[class*="save"] button',
+    ];
+    const selector = await waitForSelector(session, saveSelectors, 3_000);
+    let clicked = false;
+    if (selector) {
+      console.log(`[wechat] Found save button selector: ${selector}`);
+      clicked = await clickBySelector(session, selector);
+      if (clicked) {
+        triggerMethod = 'selector';
+        triggerSelector = selector;
+      }
+    }
+    if (!clicked) {
+      const result = await session.cdp.send<{ result: { value: boolean } }>('Runtime.evaluate', {
+        expression: `
+          (() => {
+            const texts = ['保存', '保存草稿', '草稿'];
+            const btns = Array.from(document.querySelectorAll('button, a, div, span'));
+            for (const btn of btns) {
+              const text = (btn.textContent || '').trim();
+              const style = window.getComputedStyle(btn);
+              const visible = style.display !== 'none' && style.visibility !== 'hidden' && btn.getBoundingClientRect().width > 0 && btn.getBoundingClientRect().height > 0;
+              if (visible && texts.some(t => text.includes(t))) {
+                btn.scrollIntoView({ block: 'center' });
+                btn.click();
+                return true;
+              }
+            }
+            return false;
+          })()
+        `,
+        returnByValue: true,
+      }, { sessionId: session.sessionId });
+      clicked = result.result.value;
+      if (clicked) {
+        triggerMethod = 'text';
+      }
+    }
+    if (!clicked) {
+      console.warn('[wechat] Save button not found by selector/text, trying Cmd+S...');
+      await sendSave(session.cdp, session.sessionId);
+      triggerMethod = 'shortcut';
+      await sleep(1000);
+      const shortcutWorked = await evaluate<boolean>(session, `
+        (() => {
+          const toast = document.querySelector('.weui-desktop-toast');
+          if (!toast) return false;
+          const text = (toast.textContent || '').trim();
+          return text.includes('保存成功') || text.includes('已保存') || text.includes('保存');
+        })()
+      `);
+      if (shortcutWorked) {
+        triggerSelector = undefined;
+        return;
+      }
+      const diagnostics = await evaluate<string[]>(session, `
+        (() => Array.from(document.querySelectorAll('button, a, div, span'))
+          .map(el => ({
+            text: (el.textContent || '').trim(),
+            cls: (el.className || '').toString()
+          }))
+          .filter(item => item.text && /保存|草稿/.test(item.text))
+          .slice(0, 20)
+          .map(item => item.text + ' :: ' + item.cls)
+        )()
+      `);
+      console.warn('[wechat] Save candidates seen on page:', diagnostics);
+      throw new Error('Save button not found');
+    }
   }, { maxAttempts: 3, delayMs: 1000, label: 'saveDraft-click' });
 
   const start = Date.now();
@@ -394,16 +665,27 @@ async function saveDraft(session: ChromeSession): Promise<void> {
         const toast = document.querySelector('.weui-desktop-toast');
         if (!toast) return false;
         const text = toast.textContent || '';
-        return text.includes('成功') || text.includes('保存') || toast.offsetParent !== null;
+        return text.includes('保存成功') || text.includes('已保存') || text.includes('保存');
       })()
     `);
     if (toastVisible) {
       console.log('[wechat] Draft saved successfully!');
-      return;
+      return {
+        triggered: true,
+        toastDetected: true,
+        buttonSelector: triggerSelector,
+        method: triggerMethod,
+      };
     }
     await sleep(500);
   }
   console.warn('[wechat] ⚠ Save confirmation toast not detected within timeout — draft may still have been saved');
+  return {
+    triggered: true,
+    toastDetected: false,
+    buttonSelector: triggerSelector,
+    method: triggerMethod,
+  };
 }
 
 function parseManifest(manifestPath: string): Manifest {
@@ -477,16 +759,16 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
     console.log(`[wechat] Loaded manifest: ${manifestFile}`);
     console.log(`[wechat] Title: ${manifest.title || '(empty)'}`);
     console.log(`[wechat] Author: ${manifest.author || '(empty)'}`);
+    console.log(`[wechat] Subtitle: ${manifest.subtitle || '(empty)'}`);
     console.log(`[wechat] Summary: ${manifest.summary || '(empty)'}`);
     console.log(`[wechat] Content images: ${manifest.contentImages?.length || 0}`);
   }
 
   const contentImages = manifest.contentImages || [];
-  const effectiveCover = coverImage || manifest.coverImage;
 
   preflightCheck(htmlFile, manifest, manifestFile);
 
-  const { cdp, chrome } = await launchChrome(WECHAT_URL, profileDir);
+  const { cdp } = await launchChrome(WECHAT_URL, profileDir);
 
   try {
     console.log('[wechat] Waiting for page load...');
@@ -523,19 +805,17 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
     await cdp.send('Runtime.enable', {}, { sessionId });
     await cdp.send('DOM.enable', {}, { sessionId });
 
-    const editorReady = await waitForSelector(session, ['.ProseMirror', '#title'], 15_000);
+    const editorReady = await waitForSelector(session, ['#title', '.ProseMirror'], 15_000);
     if (!editorReady) {
       console.warn('[wechat] ⚠ Editor may not be fully loaded, proceeding...');
     }
 
     if (manifest.title) {
-      console.log('[wechat] Filling title...');
-      await evaluate(session, `document.querySelector('#title').value = ${JSON.stringify(manifest.title)}; document.querySelector('#title').dispatchEvent(new Event('input', { bubbles: true }));`);
+      await fillInputField(session, 'title', ['#title', 'input#title', 'textarea#title'], manifest.title, { required: true });
     }
 
     if (manifest.author) {
-      console.log('[wechat] Filling author...');
-      await evaluate(session, `document.querySelector('#author').value = ${JSON.stringify(manifest.author)}; document.querySelector('#author').dispatchEvent(new Event('input', { bubbles: true }));`);
+      await fillInputField(session, 'author', ['#author', 'input#author', 'textarea#author'], manifest.author);
     }
 
     console.log('[wechat] Focusing editor...');
@@ -544,11 +824,11 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
     await clickElement(session, '.ProseMirror');
     await sleep(300);
 
-    console.log(`[wechat] Copying HTML content from: ${htmlFile}`);
-    await copyHtmlFromBrowser(cdp, htmlFile);
+    console.log(`[wechat] Preparing HTML content from: ${htmlFile}`);
+    const htmlContent = await copyHtmlForEditor(htmlFile);
     await sleep(500);
     console.log('[wechat] Pasting into editor...');
-    await pasteFromClipboardInEditor(session);
+    await pasteFromClipboardInEditor(session, htmlContent);
     await sleep(1000);
 
     if (contentImages.length > 0) {
@@ -588,29 +868,73 @@ export async function publishArticle(options: PublishOptions): Promise<void> {
         await copyImageToClipboard(imagePath);
         await sleep(300);
 
+        const beforeImageCount = await getEditorImageCount(session);
+
         console.log('[wechat] Deleting placeholder with Backspace...');
         await pressDeleteKey(session);
         await sleep(200);
 
         console.log('[wechat] Pasting image...');
         await pasteFromClipboardInEditor(session);
-        await sleep(3000);
+        const inserted = await waitForEditorImageCountIncrease(session, beforeImageCount, 15_000);
+        if (!inserted) {
+          throw new Error(`Image paste did not produce a new <img> node for ${img.placeholder} (${path.basename(imagePath)})`);
+        }
+        await sleep(1000);
       }
       console.log('[wechat] All images inserted.');
     }
 
-    if (manifest.summary) {
-      console.log(`[wechat] Filling summary: ${manifest.summary}`);
-      await evaluate(session, `document.querySelector('#js_description').value = ${JSON.stringify(manifest.summary)}; document.querySelector('#js_description').dispatchEvent(new Event('input', { bubbles: true }));`);
+    const effectiveSummary = manifest.subtitle || manifest.summary;
+    if (effectiveSummary) {
+      await fillInputField(session, 'summary', ['#js_description', 'textarea#js_description'], effectiveSummary);
     }
 
-    if (effectiveCover) {
-      await uploadCoverImage(session, effectiveCover);
+    let saveResult: SaveDraftResult;
+    try {
+      saveResult = await saveDraft(session);
+    } catch (error) {
+      console.warn('[wechat] ⚠ Automatic draft save failed. Please save manually in the current editor page.');
+      console.warn(`[wechat]   Reason: ${error instanceof Error ? error.message : String(error)}`);
+      throw error;
     }
 
-    await saveDraft(session);
+    const verdict = await collectPublishFlowVerdict(session, {
+      title: manifest.title,
+      author: manifest.author,
+      summary: effectiveSummary,
+      imageCount: contentImages.length,
+    }, saveResult);
 
-    console.log('[wechat] Done. Browser window left open.');
+    if (verdict.blockingDialog || !verdict.titleOk || !verdict.contentOk || !verdict.imageCountOk || !verdict.saveToastOk) {
+      console.warn('[wechat] ⚠ Publish flow requires manual review.', verdict);
+      if (verdict.blockingDialog) {
+        throw new Error('Blocking dialog detected after save attempt');
+      }
+      if (!verdict.titleOk) {
+        throw new Error('Title was not persisted in WeChat editor');
+      }
+      if (!verdict.contentOk) {
+        throw new Error('Editor content looks incomplete after paste/save');
+      }
+      if (!verdict.imageCountOk) {
+        throw new Error('Not all content images were inserted into editor');
+      }
+      if (!verdict.saveToastOk) {
+        throw new Error('Draft save success toast was not detected');
+      }
+    }
+
+    const blockingDialog = await detectBlockingDialog(session);
+    if (blockingDialog) {
+      throw new Error('Blocking dialog remains open in editor');
+    }
+
+    console.log('[wechat] ✅ Publish flow completed with verified draft-save state.');
+
+    console.log('[wechat] Stopped on the current editor page by request. Cover upload is skipped.');
+    console.log('[wechat] Browser window left open.');
+    return;
   } finally {
     cdp.close();
   }
